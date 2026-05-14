@@ -27,3 +27,14 @@ export async function getPerfil(): Promise<Perfil | null> {
     rol: (data?.rol ?? 'socio') as Rol,
   }
 }
+
+export interface Usuario {
+  userId: string
+  nombre: string
+}
+
+export async function getUsuarios(): Promise<Usuario[]> {
+  const supabase = await createClient()
+  const { data } = await supabase.from('perfiles').select('user_id, nombre')
+  return (data ?? []).map((p) => ({ userId: p.user_id, nombre: p.nombre }))
+}

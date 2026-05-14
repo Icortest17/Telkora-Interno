@@ -20,14 +20,18 @@ import {
 } from '@/components/ui/dialog'
 import { SECTORES, FUENTES, PACKS_SERVICIOS } from '@/lib/constants'
 import type { Lead } from '@/types'
+import type { Usuario } from '@/lib/profile'
 
 interface LeadFormProps {
   open: boolean
   onClose: () => void
   onSubmit: (data: Partial<Lead>) => Promise<void>
+  usuarios?: Usuario[]
+  currentUserId?: string
+  esAdmin?: boolean
 }
 
-export function LeadForm({ open, onClose, onSubmit }: LeadFormProps) {
+export function LeadForm({ open, onClose, onSubmit, usuarios = [], currentUserId = '', esAdmin = false }: LeadFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [form, setForm] = useState({
     empresa: '',
@@ -40,6 +44,7 @@ export function LeadForm({ open, onClose, onSubmit }: LeadFormProps) {
     fuente: '',
     valor_estimado: 0,
     notas: '',
+    asignar_a: currentUserId,
   })
 
   function set(key: string, value: string | number) {
@@ -52,7 +57,17 @@ export function LeadForm({ open, onClose, onSubmit }: LeadFormProps) {
     setIsLoading(true)
     try {
       await onSubmit({
-        ...form,
+        empresa: form.empresa,
+        contacto: form.contacto,
+        email: form.email,
+        telefono: form.telefono,
+        website: form.website,
+        sector: form.sector,
+        pack_interes: form.pack_interes,
+        fuente: form.fuente,
+        valor_estimado: form.valor_estimado,
+        notas: form.notas,
+        owner_id: form.asignar_a || currentUserId,
         estado: 'prospecto',
         probabilidad: 50,
         prioridad_score: 2,
@@ -62,7 +77,7 @@ export function LeadForm({ open, onClose, onSubmit }: LeadFormProps) {
         fuente_apify: false,
       })
       onClose()
-      setForm({ empresa: '', contacto: '', email: '', telefono: '', website: '', sector: '', pack_interes: '', fuente: '', valor_estimado: 0, notas: '' })
+      setForm({ empresa: '', contacto: '', email: '', telefono: '', website: '', sector: '', pack_interes: '', fuente: '', valor_estimado: 0, notas: '', asignar_a: currentUserId })
     } finally {
       setIsLoading(false)
     }
@@ -164,6 +179,21 @@ export function LeadForm({ open, onClose, onSubmit }: LeadFormProps) {
               </SelectContent>
             </Select>
           </div>
+          {esAdmin && usuarios.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs text-telkora-muted">Asignar a</Label>
+              <Select value={form.asignar_a} onValueChange={(v) => set('asignar_a', v ?? currentUserId)}>
+                <SelectTrigger className="border-telkora-border bg-telkora-card2 text-telkora-text">
+                  <SelectValue placeholder="Seleccionar responsable" />
+                </SelectTrigger>
+                <SelectContent className="border-telkora-border bg-telkora-card">
+                  {usuarios.map((u) => (
+                    <SelectItem key={u.userId} value={u.userId} className="text-telkora-text">{u.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1">
             <Label className="text-xs text-telkora-muted">Valor estimado (EUR)</Label>
             <Input

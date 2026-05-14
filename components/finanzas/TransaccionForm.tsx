@@ -15,15 +15,19 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CATEGORIAS_TRANSACCION } from '@/lib/constants'
 import type { Transaccion, Cliente } from '@/types'
+import type { Usuario } from '@/lib/profile'
 
 interface TransaccionFormProps {
   open: boolean
   onClose: () => void
   onSubmit: (data: Partial<Transaccion>) => Promise<void>
   clientes: Pick<Cliente, 'id' | 'empresa'>[]
+  usuarios?: Usuario[]
+  currentUserId?: string
+  esAdmin?: boolean
 }
 
-export function TransaccionForm({ open, onClose, onSubmit, clientes }: TransaccionFormProps) {
+export function TransaccionForm({ open, onClose, onSubmit, clientes, usuarios = [], currentUserId = '', esAdmin = false }: TransaccionFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [form, setForm] = useState({
     tipo: 'ingreso' as Transaccion['tipo'],
@@ -35,6 +39,7 @@ export function TransaccionForm({ open, onClose, onSubmit, clientes }: Transacci
     fecha_cobro: '',
     estado: 'pendiente' as Transaccion['estado'],
     notas: '',
+    asignar_a: currentUserId,
   })
 
   function set(key: string, value: string | number | boolean) {
@@ -47,14 +52,19 @@ export function TransaccionForm({ open, onClose, onSubmit, clientes }: Transacci
     setIsLoading(true)
     try {
       await onSubmit({
-        ...form,
+        tipo: form.tipo,
+        concepto: form.concepto,
+        importe: form.importe,
+        estado: form.estado,
+        es_recurrente: form.es_recurrente,
         cliente_id: form.cliente_id || null,
         categoria: form.categoria || null,
         fecha_cobro: form.fecha_cobro || null,
         notas: form.notas || null,
+        owner_id: form.asignar_a || currentUserId,
       })
       onClose()
-      setForm({ tipo: 'ingreso', concepto: '', importe: 0, cliente_id: '', categoria: '', es_recurrente: false, fecha_cobro: '', estado: 'pendiente', notas: '' })
+      setForm({ tipo: 'ingreso', concepto: '', importe: 0, cliente_id: '', categoria: '', es_recurrente: false, fecha_cobro: '', estado: 'pendiente', notas: '', asignar_a: currentUserId })
     } finally {
       setIsLoading(false)
     }
@@ -162,6 +172,21 @@ export function TransaccionForm({ open, onClose, onSubmit, clientes }: Transacci
             </div>
           </div>
 
+          {esAdmin && usuarios.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs text-telkora-muted">Asignar a</Label>
+              <Select value={form.asignar_a} onValueChange={(v) => set('asignar_a', v ?? currentUserId)}>
+                <SelectTrigger className="border-telkora-border bg-telkora-card2 text-telkora-text">
+                  <SelectValue placeholder="Seleccionar responsable" />
+                </SelectTrigger>
+                <SelectContent className="border-telkora-border bg-telkora-card">
+                  {usuarios.map((u) => (
+                    <SelectItem key={u.userId} value={u.userId} className="text-telkora-text">{u.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <input
               type="checkbox"

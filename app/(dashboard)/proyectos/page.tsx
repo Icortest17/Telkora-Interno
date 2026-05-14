@@ -1,18 +1,20 @@
 import { createClient } from '@/lib/supabase/server'
-import { getPerfil } from '@/lib/profile'
+import { getPerfil, getUsuarios } from '@/lib/profile'
 import { KanbanProyectos } from '@/components/proyectos/KanbanProyectos'
 import type { Proyecto, Cliente } from '@/types'
 
 export default async function ProyectosPage() {
   const supabase = await createClient()
   const perfil = await getPerfil()
+  const esAdmin = perfil?.rol === 'admin'
 
   let proyQuery = supabase.from('proyectos').select('*').order('created_at', { ascending: false })
-  if (perfil?.rol === 'socio') proyQuery = proyQuery.eq('owner_id', perfil.userId) as typeof proyQuery
+  if (!esAdmin) proyQuery = proyQuery.eq('owner_id', perfil?.userId) as typeof proyQuery
 
-  const [proyectosRes, clientesRes] = await Promise.all([
+  const [proyectosRes, clientesRes, usuarios] = await Promise.all([
     proyQuery,
     supabase.from('clientes').select('id, empresa').eq('estado', 'activo').order('empresa'),
+    esAdmin ? getUsuarios() : Promise.resolve([]),
   ])
 
   const proyectos: Proyecto[] = proyectosRes.data ?? []
@@ -24,6 +26,8 @@ export default async function ProyectosPage() {
         proyectos={proyectos}
         clientes={clientes}
         currentUserId={perfil?.userId ?? ''}
+        usuarios={usuarios}
+        esAdmin={esAdmin}
       />
     </div>
   )

@@ -5,6 +5,22 @@ import type { ApifyCSVRow } from '@/types'
 
 export async function POST(request: Request) {
   const cookieStore = await cookies()
+
+  // Client with session cookies to identify the current user
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: () => {},
+      },
+    }
+  )
+  const { data: { user } } = await supabaseAuth.auth.getUser()
+  const ownerId = user?.id ?? null
+
+  // Service role client for the actual insert (bypasses RLS)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -20,6 +36,7 @@ export async function POST(request: Request) {
     await request.json()
 
   const leadsToUpsert = rows.map((row) => ({
+    owner_id: ownerId,
     empresa: row.Name?.trim() || 'Sin nombre',
     telefono: row.Phone?.trim() || null,
     website: row.Website?.trim() || null,

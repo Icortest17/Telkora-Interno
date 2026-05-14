@@ -15,15 +15,19 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { TIPOS_PROYECTO, PRIORIDADES_PROYECTO } from '@/lib/constants'
 import type { Proyecto, Cliente } from '@/types'
+import type { Usuario } from '@/lib/profile'
 
 interface ProyectoFormProps {
   open: boolean
   onClose: () => void
   onSubmit: (data: Partial<Proyecto>) => Promise<void>
   clientes: Pick<Cliente, 'id' | 'empresa'>[]
+  usuarios?: Usuario[]
+  currentUserId?: string
+  esAdmin?: boolean
 }
 
-export function ProyectoForm({ open, onClose, onSubmit, clientes }: ProyectoFormProps) {
+export function ProyectoForm({ open, onClose, onSubmit, clientes, usuarios = [], currentUserId = '', esAdmin = false }: ProyectoFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [form, setForm] = useState({
     nombre: '',
@@ -34,6 +38,7 @@ export function ProyectoForm({ open, onClose, onSubmit, clientes }: ProyectoForm
     fecha_inicio: '',
     fecha_entrega_estimada: '',
     descripcion: '',
+    asignar_a: currentUserId,
   })
 
   function set(key: string, value: string | number) {
@@ -46,18 +51,22 @@ export function ProyectoForm({ open, onClose, onSubmit, clientes }: ProyectoForm
     setIsLoading(true)
     try {
       await onSubmit({
-        ...form,
-        estado: 'briefing',
-        porcentaje_completado: 0,
-        facturado: 0,
+        nombre: form.nombre,
+        cliente_id: form.cliente_id,
+        tipo_proyecto: form.tipo_proyecto || null,
+        prioridad: form.prioridad,
         presupuesto: form.presupuesto || null,
         fecha_inicio: form.fecha_inicio || null,
         fecha_entrega_estimada: form.fecha_entrega_estimada || null,
-        tipo_proyecto: form.tipo_proyecto || null,
         descripcion: form.descripcion || null,
+        owner_id: form.asignar_a || currentUserId,
+        responsable_id: form.asignar_a || currentUserId,
+        estado: 'briefing',
+        porcentaje_completado: 0,
+        facturado: 0,
       })
       onClose()
-      setForm({ nombre: '', cliente_id: '', tipo_proyecto: '', prioridad: 'media', presupuesto: 0, fecha_inicio: '', fecha_entrega_estimada: '', descripcion: '' })
+      setForm({ nombre: '', cliente_id: '', tipo_proyecto: '', prioridad: 'media', presupuesto: 0, fecha_inicio: '', fecha_entrega_estimada: '', descripcion: '', asignar_a: currentUserId })
     } finally {
       setIsLoading(false)
     }
@@ -157,6 +166,21 @@ export function ProyectoForm({ open, onClose, onSubmit, clientes }: ProyectoForm
             />
           </div>
 
+          {esAdmin && usuarios.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs text-telkora-muted">Asignar a</Label>
+              <Select value={form.asignar_a} onValueChange={(v) => set('asignar_a', v ?? currentUserId)}>
+                <SelectTrigger className="border-telkora-border bg-telkora-card2 text-telkora-text">
+                  <SelectValue placeholder="Seleccionar responsable" />
+                </SelectTrigger>
+                <SelectContent className="border-telkora-border bg-telkora-card">
+                  {usuarios.map((u) => (
+                    <SelectItem key={u.userId} value={u.userId} className="text-telkora-text">{u.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-1">
             <Label className="text-xs text-telkora-muted">Descripción</Label>
             <Textarea

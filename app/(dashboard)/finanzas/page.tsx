@@ -1,22 +1,23 @@
 import { createClient } from '@/lib/supabase/server'
-import { getPerfil } from '@/lib/profile'
+import { getPerfil, getUsuarios } from '@/lib/profile'
 import { FinanzasClient } from '@/components/finanzas/FinanzasClient'
 import type { Transaccion, Cliente } from '@/types'
 
 export default async function FinanzasPage() {
   const supabase = await createClient()
   const perfil = await getPerfil()
-  const esSocio = perfil?.rol === 'socio'
+  const esAdmin = perfil?.rol === 'admin'
 
   let txQuery = supabase.from('transacciones').select('*').order('created_at', { ascending: false })
-  if (esSocio) txQuery = txQuery.eq('owner_id', perfil!.userId) as typeof txQuery
+  if (!esAdmin) txQuery = txQuery.eq('owner_id', perfil?.userId) as typeof txQuery
 
-  const [txRes, clientesRes, mrrRes] = await Promise.all([
+  const [txRes, clientesRes, mrrRes, usuarios] = await Promise.all([
     txQuery,
     supabase.from('clientes').select('id, empresa').eq('estado', 'activo').order('empresa'),
-    esSocio
-      ? Promise.resolve({ data: [] })
-      : supabase.from('clientes').select('mrr').eq('estado', 'activo'),
+    esAdmin
+      ? supabase.from('clientes').select('mrr').eq('estado', 'activo')
+      : Promise.resolve({ data: [] }),
+    esAdmin ? getUsuarios() : Promise.resolve([]),
   ])
 
   const transacciones: Transaccion[] = txRes.data ?? []
@@ -28,6 +29,9 @@ export default async function FinanzasPage() {
       transacciones={transacciones}
       clientes={clientes}
       mrrActual={mrrActual}
+      usuarios={usuarios}
+      currentUserId={perfil?.userId ?? ''}
+      esAdmin={esAdmin}
     />
   )
 }

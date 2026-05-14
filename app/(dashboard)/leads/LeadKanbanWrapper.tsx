@@ -5,13 +5,16 @@ import { createClient } from '@/lib/supabase/client'
 import { LeadKanban } from '@/components/leads/LeadKanban'
 import { toast } from 'sonner'
 import type { Lead, EstadoLead } from '@/types'
+import type { Usuario } from '@/lib/profile'
 
 interface Props {
   initialLeads: Lead[]
   currentUserId: string
+  usuarios?: Usuario[]
+  esAdmin?: boolean
 }
 
-export function LeadKanbanWrapper({ initialLeads, currentUserId }: Props) {
+export function LeadKanbanWrapper({ initialLeads, currentUserId, usuarios = [], esAdmin = false }: Props) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
   const supabase = createClient()
 
@@ -51,7 +54,8 @@ export function LeadKanbanWrapper({ initialLeads, currentUserId }: Props) {
   const createLead = useCallback(
     async (data: Partial<Lead>) => {
       try {
-        const { data: newLead, error } = await supabase.from('leads').insert(data).select().single()
+        const payload = { ...data, owner_id: data.owner_id || currentUserId }
+        const { data: newLead, error } = await supabase.from('leads').insert(payload).select().single()
         if (error) throw error
         setLeads((prev) => [newLead, ...prev])
         toast.success('Lead creado')
@@ -68,6 +72,8 @@ export function LeadKanbanWrapper({ initialLeads, currentUserId }: Props) {
     <LeadKanban
       leads={leads}
       currentUserId={currentUserId}
+      usuarios={usuarios}
+      esAdmin={esAdmin}
       onUpdateEstado={updateEstado}
       onCreateLead={createLead}
       onRefresh={refresh}

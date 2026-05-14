@@ -23,11 +23,14 @@ import { ProyectoForm } from './ProyectoForm'
 import { ESTADOS_PROYECTO, ESTADOS_PROYECTO_ORDER, type EstadoProyecto } from '@/lib/constants'
 import { formatEUR } from '@/lib/utils'
 import type { Proyecto, Cliente } from '@/types'
+import type { Usuario } from '@/lib/profile'
 
 interface KanbanProyectosProps {
   proyectos: Proyecto[]
   clientes: Pick<Cliente, 'id' | 'empresa'>[]
   currentUserId: string
+  usuarios?: Usuario[]
+  esAdmin?: boolean
 }
 
 function ProyectoColumn({
@@ -80,7 +83,7 @@ function ProyectoColumn({
   )
 }
 
-export function KanbanProyectos({ proyectos: initialProyectos, clientes, currentUserId }: KanbanProyectosProps) {
+export function KanbanProyectos({ proyectos: initialProyectos, clientes, currentUserId, usuarios = [], esAdmin = false }: KanbanProyectosProps) {
   const supabase = createClient()
   const [proyectos, setProyectos] = useState<Proyecto[]>(initialProyectos)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -143,9 +146,10 @@ export function KanbanProyectos({ proyectos: initialProyectos, clientes, current
   }
 
   async function handleCreateProyecto(data: Partial<Proyecto>) {
+    const ownerId = data.owner_id || currentUserId
     const { data: nuevo, error } = await supabase
       .from('proyectos')
-      .insert({ ...data, responsable_id: currentUserId })
+      .insert({ ...data, owner_id: ownerId, responsable_id: ownerId })
       .select()
       .single()
     if (error) { toast.error('Error creando proyecto'); return }
@@ -207,6 +211,9 @@ export function KanbanProyectos({ proyectos: initialProyectos, clientes, current
         onClose={() => setShowForm(false)}
         onSubmit={handleCreateProyecto}
         clientes={clientes}
+        usuarios={usuarios}
+        currentUserId={currentUserId}
+        esAdmin={esAdmin}
       />
     </div>
   )

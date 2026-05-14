@@ -24,11 +24,15 @@ import { es } from 'date-fns/locale'
 import * as XLSX from 'xlsx'
 import type { Transaccion, Cliente } from '@/types'
 import { CATEGORIAS_TRANSACCION } from '@/lib/constants'
+import type { Usuario } from '@/lib/profile'
 
 interface FinanzasClientProps {
   transacciones: Transaccion[]
   clientes: Pick<Cliente, 'id' | 'empresa'>[]
   mrrActual: number
+  usuarios?: Usuario[]
+  currentUserId?: string
+  esAdmin?: boolean
 }
 
 const ESTADO_COLORS: Record<string, string> = {
@@ -40,7 +44,7 @@ const ESTADO_COLORS: Record<string, string> = {
 
 type Periodo = 'mes' | 'trimestre' | 'año' | 'todo'
 
-export function FinanzasClient({ transacciones: initialTx, clientes, mrrActual }: FinanzasClientProps) {
+export function FinanzasClient({ transacciones: initialTx, clientes, mrrActual, usuarios = [], currentUserId = '', esAdmin = false }: FinanzasClientProps) {
   const supabase = createClient()
   const [transacciones, setTransacciones] = useState<Transaccion[]>(initialTx)
   const [showForm, setShowForm] = useState(false)
@@ -191,7 +195,8 @@ export function FinanzasClient({ transacciones: initialTx, clientes, mrrActual }
   }
 
   async function handleCreateTransaccion(data: Partial<Transaccion>) {
-    const { data: nueva, error } = await supabase.from('transacciones').insert(data).select().single()
+    const payload = { ...data, owner_id: data.owner_id || currentUserId }
+    const { data: nueva, error } = await supabase.from('transacciones').insert(payload).select().single()
     if (error) { toast.error('Error creando transacción'); return }
     setTransacciones((prev) => [nueva, ...prev])
     toast.success('Transacción añadida')
@@ -473,6 +478,9 @@ export function FinanzasClient({ transacciones: initialTx, clientes, mrrActual }
         onClose={() => setShowForm(false)}
         onSubmit={handleCreateTransaccion}
         clientes={clientes}
+        usuarios={usuarios}
+        currentUserId={currentUserId}
+        esAdmin={esAdmin}
       />
     </div>
   )

@@ -38,6 +38,7 @@ export interface Lead {
   fuente: string | null
   fase_proceso: string
   prioridad_score: PrioridadScore
+  owner_id: string | null
   responsable_id: string | null
   fecha_primer_contacto: string | null
   proximo_followup: string | null
@@ -92,6 +93,7 @@ export interface Proyecto {
   nombre: string
   tipo_proyecto: string | null
   estado: 'briefing' | 'desarrollo' | 'revision' | 'entregado' | 'mantenimiento' | 'pausado' | 'cancelado'
+  owner_id: string | null
   responsable_id: string | null
   fecha_inicio: string | null
   fecha_entrega_estimada: string | null
@@ -106,6 +108,7 @@ export interface Proyecto {
 export interface Transaccion {
   id: string
   created_at: string
+  owner_id: string | null
   tipo: 'ingreso' | 'gasto'
   concepto: string
   importe: number

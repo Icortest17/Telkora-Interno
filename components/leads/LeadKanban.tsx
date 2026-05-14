@@ -25,10 +25,13 @@ import { ImportCSV } from './ImportCSV'
 import { formatEUR } from '@/lib/utils'
 import { ESTADOS_LEAD, ESTADOS_LEAD_ORDER } from '@/lib/constants'
 import type { Lead, EstadoLead } from '@/types'
+import type { Usuario } from '@/lib/profile'
 
 interface LeadKanbanProps {
   leads: Lead[]
   currentUserId: string
+  usuarios?: Usuario[]
+  esAdmin?: boolean
   onUpdateEstado: (leadId: string, estado: EstadoLead, userId: string) => Promise<void>
   onCreateLead: (data: Partial<Lead>) => Promise<Lead | null>
   onRefresh: () => void
@@ -89,6 +92,8 @@ function KanbanColumn({
 export function LeadKanban({
   leads,
   currentUserId,
+  usuarios = [],
+  esAdmin = false,
   onUpdateEstado,
   onCreateLead,
   onRefresh,
@@ -206,6 +211,9 @@ export function LeadKanban({
         open={showForm}
         onClose={() => setShowForm(false)}
         onSubmit={handleCreateLead}
+        usuarios={usuarios}
+        currentUserId={currentUserId}
+        esAdmin={esAdmin}
       />
       <ImportCSV
         open={showImport}
