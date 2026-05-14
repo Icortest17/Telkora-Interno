@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getPerfil } from '@/lib/profile'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { Toaster } from '@/components/ui/sonner'
@@ -10,22 +11,20 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const perfil = await getPerfil()
 
-  if (!user) redirect('/login')
+  if (!perfil) redirect('/login')
 
-  // Cargar leads para alertas (header badge)
-  const { data: leads } = await supabase
-    .from('leads')
-    .select('*')
+  // Leads para badge de alertas — filtrado por rol
+  let leadsQuery = supabase.from('leads').select('*')
+  if (perfil.rol === 'socio') leadsQuery = leadsQuery.eq('owner_id', perfil.userId) as typeof leadsQuery
+  const { data: leads } = await leadsQuery
 
   return (
     <div className="flex h-screen overflow-hidden bg-telkora-bg">
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header userEmail={user.email ?? ''} leads={leads ?? []} />
+        <Header userEmail={perfil.email} leads={leads ?? []} />
         <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
       <Toaster

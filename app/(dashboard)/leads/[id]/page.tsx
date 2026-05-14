@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getPerfil } from '@/lib/profile'
 import { LeadDetailClient } from './LeadDetailClient'
 
 interface Props {
@@ -10,16 +11,13 @@ export default async function LeadDetailPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const perfil = await getPerfil()
+  if (!perfil) redirect('/login')
 
-  const { data: lead, error } = await supabase
-    .from('leads')
-    .select('*')
-    .eq('id', id)
-    .single()
+  let query = supabase.from('leads').select('*').eq('id', id)
+  if (perfil.rol === 'socio') query = query.eq('owner_id', perfil.userId) as typeof query
+
+  const { data: lead, error } = await query.single()
 
   if (error || !lead) notFound()
 
@@ -33,7 +31,7 @@ export default async function LeadDetailPage({ params }: Props) {
     <LeadDetailClient
       initialLead={lead}
       initialActividades={actividades ?? []}
-      currentUserId={user.id}
+      currentUserId={perfil.userId}
     />
   )
 }

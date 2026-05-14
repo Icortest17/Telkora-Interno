@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getPerfil } from '@/lib/profile'
 import Link from 'next/link'
 import { formatEUR, formatDate, isFollowupUrgente } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -8,11 +9,23 @@ import { ESTADOS_LEAD } from '@/lib/constants'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
+  const perfil = await getPerfil()
+  const esSocio = perfil?.rol === 'socio'
+  const userId = perfil?.userId ?? ''
+
+  let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false })
+  if (esSocio) leadsQuery = leadsQuery.eq('owner_id', userId) as typeof leadsQuery
+
+  let proyQuery = supabase.from('proyectos').select('id, estado').not('estado', 'in', '("entregado","cancelado","pausado")')
+  if (esSocio) proyQuery = proyQuery.eq('owner_id', userId) as typeof proyQuery
 
   const [leadsRes, clientesRes, proyectosRes] = await Promise.all([
-    supabase.from('leads').select('*').order('created_at', { ascending: false }),
-    supabase.from('clientes').select('mrr, estado').eq('estado', 'activo'),
-    supabase.from('proyectos').select('id, estado').not('estado', 'in', '("entregado","cancelado","pausado")'),
+    leadsQuery,
+    // MRR solo visible para admin
+    esSocio
+      ? Promise.resolve({ data: [] })
+      : supabase.from('clientes').select('mrr, estado').eq('estado', 'activo'),
+    proyQuery,
   ])
 
   const leads: Lead[] = leadsRes.data ?? []
@@ -54,10 +67,10 @@ export default async function DashboardPage() {
   )
 
   const METRICAS = [
-    { label: 'Leads activos', value: leadsActivos, icon: Users, accent: false },
-    { label: 'MRR actual', value: formatEUR(mrrActual), icon: TrendingUp, accent: true },
-    { label: 'Valor pipeline', value: formatEUR(valorPipeline), icon: BarChart2, accent: false },
-    { label: 'Proyectos activos', value: proyectosActivos, icon: FolderKanban, accent: false },
+    { label: 'Mis leads activos', value: leadsActivos, icon: Users, accent: false },
+    ...(esSocio ? [] : [{ label: 'MRR actual', value: formatEUR(mrrActual), icon: TrendingUp, accent: true }]),
+    { label: 'Mi pipeline', value: formatEUR(valorPipeline), icon: BarChart2, accent: false },
+    { label: esSocio ? 'Mis proyectos' : 'Proyectos activos', value: proyectosActivos, icon: FolderKanban, accent: false },
   ]
 
   return (
