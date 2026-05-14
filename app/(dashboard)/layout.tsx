@@ -15,7 +15,7 @@ export default async function DashboardLayout({
 
   if (!perfil) redirect('/login')
 
-  // Leads para badge de alertas — filtrado por rol
+  // Leads para badge de alertas — filtrado por rol del usuario
   let leadsQuery = supabase.from('leads').select('*')
   if (perfil.rol === 'socio') leadsQuery = leadsQuery.eq('owner_id', perfil.userId) as typeof leadsQuery
   const { data: leads } = await leadsQuery
