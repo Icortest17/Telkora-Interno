@@ -1,26 +1,98 @@
 @import "tailwindcss";
+@import "tw-animate-css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* Telkora brand palette */
+  --color-telkora-bg: #0A0A0A;
+  --color-telkora-card: #111111;
+  --color-telkora-card2: #161616;
+  --color-telkora-accent: #00FF88;
+  --color-telkora-accent2: #00CC6A;
+  --color-telkora-border: #222222;
+  --color-telkora-text: #FFFFFF;
+  --color-telkora-muted: #888888;
+  --color-telkora-danger: #FF4444;
+  --color-telkora-warning: #FF8C00;
+  --color-telkora-info: #4A9EFF;
+
+  /* Tier badge colors */
+  --color-tier-gold: #FFD700;
+  --color-tier-silver: #C0C0C0;
+  --color-tier-bronze: #CD7F32;
+
+  /* shadcn/ui CSS variables mapped to Telkora dark theme */
+  --background: #0A0A0A;
+  --foreground: #FFFFFF;
+  --card: #111111;
+  --card-foreground: #FFFFFF;
+  --popover: #111111;
+  --popover-foreground: #FFFFFF;
+  --primary: #00FF88;
+  --primary-foreground: #0A0A0A;
+  --secondary: #161616;
+  --secondary-foreground: #FFFFFF;
+  --muted: #161616;
+  --muted-foreground: #888888;
+  --accent: #00FF88;
+  --accent-foreground: #0A0A0A;
+  --destructive: #FF4444;
+  --border: #222222;
+  --input: #222222;
+  --ring: #00FF88;
+  --radius: 0.5rem;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--border);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar oscuro para toda la app */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0A0A0A;
+}
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #444444;
 }
