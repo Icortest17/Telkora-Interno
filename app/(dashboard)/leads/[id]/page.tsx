@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getPerfil } from '@/lib/profile'
+import { getPerfil, getUsuarios } from '@/lib/profile'
 import { LeadDetailClient } from './LeadDetailClient'
 
 interface Props {
@@ -21,17 +21,25 @@ export default async function LeadDetailPage({ params }: Props) {
 
   if (error || !lead) notFound()
 
-  const { data: actividades } = await supabase
-    .from('lead_actividades')
-    .select('*')
-    .eq('lead_id', id)
-    .order('created_at', { ascending: false })
+  const esAdmin = perfil.rol === 'admin'
+
+  const [actividades, usuarios] = await Promise.all([
+    supabase
+      .from('lead_actividades')
+      .select('*')
+      .eq('lead_id', id)
+      .order('created_at', { ascending: false })
+      .then((r) => r.data ?? []),
+    esAdmin ? getUsuarios() : Promise.resolve([]),
+  ])
 
   return (
     <LeadDetailClient
       initialLead={lead}
-      initialActividades={actividades ?? []}
+      initialActividades={actividades}
       currentUserId={perfil.userId}
+      esAdmin={esAdmin}
+      usuarios={usuarios}
     />
   )
 }

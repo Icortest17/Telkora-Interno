@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { ArrowLeft, Phone, Mail, Globe, User, Calendar, FileText, MessageSquare, PhoneCall, Video, ArrowRightLeft, Send } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, Globe, User, Calendar, FileText, MessageSquare, PhoneCall, Video, ArrowRightLeft, Send, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,6 +21,7 @@ import { PriorityScore } from '@/components/shared/PriorityScore'
 import { SECTORES, FUENTES, PACKS_SERVICIOS, FASES_PROCESO, ESTADOS_LEAD_ORDER, TIPOS_ACTIVIDAD } from '@/lib/constants'
 import { formatDateTime, formatEUR, formatDate } from '@/lib/utils'
 import type { Lead, LeadActividad, EstadoLead, TipoActividad } from '@/types'
+import type { Usuario } from '@/lib/profile'
 
 const ACTIVIDAD_ICONS: Record<TipoActividad, React.ElementType> = {
   nota: FileText,
@@ -36,9 +37,11 @@ interface Props {
   initialLead: Lead
   initialActividades: LeadActividad[]
   currentUserId: string
+  esAdmin: boolean
+  usuarios: Usuario[]
 }
 
-export function LeadDetailClient({ initialLead, initialActividades, currentUserId }: Props) {
+export function LeadDetailClient({ initialLead, initialActividades, currentUserId, esAdmin, usuarios }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [lead, setLead] = useState<Lead>(initialLead)
@@ -48,6 +51,7 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
   const [contenidoActividad, setContenidoActividad] = useState('')
   const [isSavingActividad, setIsSavingActividad] = useState(false)
   const [isConvirtiendo, setIsConvirtiendo] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Debounce notas
@@ -135,6 +139,20 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
     }
   }
 
+  async function handleDeleteLead() {
+    if (!window.confirm('¿Eliminar este lead? Esta acción no se puede deshacer.')) return
+    setIsDeleting(true)
+    try {
+      const { error } = await supabase.from('leads').delete().eq('id', lead.id)
+      if (error) throw error
+      toast.success('Lead eliminado')
+      router.push('/leads')
+    } catch {
+      toast.error('Error eliminando lead')
+      setIsDeleting(false)
+    }
+  }
+
   async function handleConvertirCliente() {
     setIsConvirtiendo(true)
     try {
@@ -189,6 +207,18 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
             className="bg-telkora-accent text-telkora-bg hover:bg-telkora-accent2"
           >
             {isConvirtiendo ? 'Convirtiendo…' : 'Convertir a cliente'}
+          </Button>
+        )}
+        {esAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDeleteLead}
+            disabled={isDeleting}
+            className="text-telkora-danger hover:bg-telkora-danger/10 hover:text-telkora-danger"
+          >
+            <Trash2 className="mr-1.5 size-4" />
+            {isDeleting ? 'Eliminando…' : 'Eliminar lead'}
           </Button>
         )}
       </div>
@@ -319,6 +349,26 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
                   </SelectContent>
                 </Select>
               </div>
+              {esAdmin && usuarios.length > 0 && (
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-[11px] text-telkora-muted">Asignado a</Label>
+                  <Select
+                    value={lead.owner_id ?? ''}
+                    onValueChange={(v) => updateField('owner_id', v)}
+                  >
+                    <SelectTrigger className="h-8 border-telkora-border bg-telkora-card2 text-xs text-telkora-text focus:ring-telkora-accent">
+                      <SelectValue placeholder="Sin asignar" />
+                    </SelectTrigger>
+                    <SelectContent className="border-telkora-border bg-telkora-card">
+                      {usuarios.map((u) => (
+                        <SelectItem key={u.userId} value={u.userId} className="text-xs text-telkora-text">
+                          {u.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </section>
 

@@ -25,21 +25,23 @@ interface TransaccionFormProps {
   usuarios?: Usuario[]
   currentUserId?: string
   esAdmin?: boolean
+  initialData?: Partial<Transaccion>
 }
 
-export function TransaccionForm({ open, onClose, onSubmit, clientes, usuarios = [], currentUserId = '', esAdmin = false }: TransaccionFormProps) {
+export function TransaccionForm({ open, onClose, onSubmit, clientes, usuarios = [], currentUserId = '', esAdmin = false, initialData }: TransaccionFormProps) {
+  const isEditMode = Boolean(initialData?.id)
   const [isLoading, setIsLoading] = useState(false)
   const [form, setForm] = useState({
-    tipo: 'ingreso' as Transaccion['tipo'],
-    concepto: '',
-    importe: 0,
-    cliente_id: '',
-    categoria: '',
-    es_recurrente: false,
-    fecha_cobro: '',
-    estado: 'pendiente' as Transaccion['estado'],
-    notas: '',
-    asignar_a: currentUserId,
+    tipo: (initialData?.tipo ?? 'ingreso') as Transaccion['tipo'],
+    concepto: initialData?.concepto ?? '',
+    importe: initialData?.importe ?? 0,
+    cliente_id: initialData?.cliente_id ?? '',
+    categoria: initialData?.categoria ?? '',
+    es_recurrente: initialData?.es_recurrente ?? false,
+    fecha_cobro: initialData?.fecha_cobro ?? '',
+    estado: (initialData?.estado ?? 'pendiente') as Transaccion['estado'],
+    notas: initialData?.notas ?? '',
+    asignar_a: initialData?.owner_id ?? currentUserId,
   })
 
   function set(key: string, value: string | number | boolean) {
@@ -51,7 +53,7 @@ export function TransaccionForm({ open, onClose, onSubmit, clientes, usuarios = 
     if (!form.concepto.trim() || form.importe <= 0) return
     setIsLoading(true)
     try {
-      await onSubmit({
+      const payload: Partial<Transaccion> = {
         tipo: form.tipo,
         concepto: form.concepto,
         importe: form.importe,
@@ -62,7 +64,11 @@ export function TransaccionForm({ open, onClose, onSubmit, clientes, usuarios = 
         fecha_cobro: form.fecha_cobro || null,
         notas: form.notas || null,
         owner_id: form.asignar_a || currentUserId,
-      })
+      }
+      if (isEditMode) {
+        payload.id = initialData!.id
+      }
+      await onSubmit(payload)
       onClose()
       setForm({ tipo: 'ingreso', concepto: '', importe: 0, cliente_id: '', categoria: '', es_recurrente: false, fecha_cobro: '', estado: 'pendiente', notas: '', asignar_a: currentUserId })
     } finally {
@@ -76,7 +82,7 @@ export function TransaccionForm({ open, onClose, onSubmit, clientes, usuarios = 
     <Dialog open onOpenChange={(isOpen) => { if (!isOpen) onClose() }}>
       <DialogContent className="border-telkora-border bg-telkora-card text-telkora-text sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-telkora-text">Nueva transacción</DialogTitle>
+          <DialogTitle className="text-telkora-text">{isEditMode ? 'Editar transacción' : 'Nueva transacción'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
@@ -219,7 +225,7 @@ export function TransaccionForm({ open, onClose, onSubmit, clientes, usuarios = 
               disabled={isLoading || !form.concepto.trim() || form.importe <= 0}
               className="bg-telkora-accent text-telkora-bg hover:bg-telkora-accent2"
             >
-              {isLoading ? 'Guardando…' : 'Añadir'}
+              {isLoading ? 'Guardando…' : isEditMode ? 'Guardar cambios' : 'Crear transacción'}
             </Button>
           </div>
         </form>

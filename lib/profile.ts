@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export type Rol = 'admin' | 'socio'
 
@@ -34,7 +35,7 @@ export interface Usuario {
 }
 
 export async function getUsuarios(): Promise<Usuario[]> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { data } = await supabase.from('perfiles').select('user_id, nombre')
   return (data ?? []).map((p) => ({ userId: p.user_id, nombre: p.nombre }))
 }

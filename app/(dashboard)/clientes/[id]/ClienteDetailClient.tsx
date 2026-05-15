@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { ArrowLeft, ExternalLink } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,12 +24,14 @@ const TIER_CONFIG = {
 interface Props {
   initialCliente: Cliente
   proyectos: Partial<Proyecto>[]
+  esAdmin: boolean
 }
 
-export function ClienteDetailClient({ initialCliente, proyectos }: Props) {
+export function ClienteDetailClient({ initialCliente, proyectos, esAdmin }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [cliente, setCliente] = useState<Cliente>(initialCliente)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const updateField = useCallback(
     async (field: keyof Cliente, value: unknown) => {
@@ -46,6 +48,20 @@ export function ClienteDetailClient({ initialCliente, proyectos }: Props) {
     },
     [cliente.id, supabase]
   )
+
+  async function handleDeleteCliente() {
+    if (!window.confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) return
+    setIsDeleting(true)
+    try {
+      const { error } = await supabase.from('clientes').delete().eq('id', cliente.id)
+      if (error) throw error
+      toast.success('Cliente eliminado')
+      router.push('/clientes')
+    } catch {
+      toast.error('Error eliminando cliente')
+      setIsDeleting(false)
+    }
+  }
 
   const tier = TIER_CONFIG[cliente.tier]
   const meses = mesesComoCliente(cliente.fecha_inicio_relacion)
@@ -79,6 +95,18 @@ export function ClienteDetailClient({ initialCliente, proyectos }: Props) {
           >
             <ExternalLink className="mr-1.5 size-3" />
             Ver lead de origen
+          </Button>
+        )}
+        {esAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDeleteCliente}
+            disabled={isDeleting}
+            className="text-telkora-danger hover:bg-telkora-danger/10 hover:text-telkora-danger"
+          >
+            <Trash2 className="mr-1.5 size-4" />
+            {isDeleting ? 'Eliminando…' : 'Eliminar cliente'}
           </Button>
         )}
       </div>

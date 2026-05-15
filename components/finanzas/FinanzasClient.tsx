@@ -10,7 +10,7 @@ import {
 } from 'recharts'
 import {
   Plus, TrendingUp, TrendingDown, DollarSign,
-  Activity, Trash2, ChevronLeft, ChevronRight,
+  Activity, Trash2, Pencil, ChevronLeft, ChevronRight,
   FileDown, Search, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -48,6 +48,7 @@ export function FinanzasClient({ transacciones: initialTx, clientes, mrrActual, 
   const supabase = createClient()
   const [transacciones, setTransacciones] = useState<Transaccion[]>(initialTx)
   const [showForm, setShowForm] = useState(false)
+  const [editingTx, setEditingTx] = useState<Transaccion | null>(null)
 
   // ── Filtros ──────────────────────────────────────────────
   const [periodoTipo, setPeriodoTipo] = useState<Periodo>('mes')
@@ -195,12 +196,28 @@ export function FinanzasClient({ transacciones: initialTx, clientes, mrrActual, 
   }
 
   async function handleCreateTransaccion(data: Partial<Transaccion>) {
-    const payload = { ...data, owner_id: data.owner_id || currentUserId }
-    const { data: nueva, error } = await supabase.from('transacciones').insert(payload).select().single()
-    if (error) { toast.error('Error creando transacción'); return }
-    setTransacciones((prev) => [nueva, ...prev])
-    toast.success('Transacción añadida')
-    setShowForm(false)
+    if (data.id) {
+      // Edit mode
+      const { id, ...fields } = data
+      const { data: updated, error } = await supabase
+        .from('transacciones')
+        .update(fields)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) { toast.error('Error actualizando transacción'); return }
+      setTransacciones((prev) => prev.map((t) => t.id === id ? updated : t))
+      toast.success('Transacción actualizada')
+      setEditingTx(null)
+    } else {
+      // Create mode
+      const payload = { ...data, owner_id: data.owner_id || currentUserId }
+      const { data: nueva, error } = await supabase.from('transacciones').insert(payload).select().single()
+      if (error) { toast.error('Error creando transacción'); return }
+      setTransacciones((prev) => [nueva, ...prev])
+      toast.success('Transacción añadida')
+      setShowForm(false)
+    }
   }
 
   const KPI_CARDS = [
@@ -443,12 +460,20 @@ export function FinanzasClient({ transacciones: initialTx, clientes, mrrActual, 
                         {tx.tipo === 'gasto' ? '−' : '+'}{formatEUR(tx.importe)}
                       </td>
                       <td className="px-3 py-2.5 text-right">
-                        <button
-                          onClick={() => handleDeleteTransaccion(tx.id)}
-                          className="invisible rounded p-1 text-telkora-muted hover:text-telkora-danger group-hover:visible"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                        <div className="invisible flex items-center justify-end gap-1 group-hover:visible">
+                          <button
+                            onClick={() => setEditingTx(tx)}
+                            className="rounded p-1 text-telkora-muted hover:text-telkora-accent"
+                          >
+                            <Pencil className="size-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTransaccion(tx.id)}
+                            className="rounded p-1 text-telkora-muted hover:text-telkora-danger"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -482,6 +507,19 @@ export function FinanzasClient({ transacciones: initialTx, clientes, mrrActual, 
         currentUserId={currentUserId}
         esAdmin={esAdmin}
       />
+
+      {editingTx && (
+        <TransaccionForm
+          open={true}
+          onClose={() => setEditingTx(null)}
+          onSubmit={handleCreateTransaccion}
+          clientes={clientes}
+          usuarios={usuarios}
+          currentUserId={currentUserId}
+          esAdmin={esAdmin}
+          initialData={editingTx}
+        />
+      )}
     </div>
   )
 }

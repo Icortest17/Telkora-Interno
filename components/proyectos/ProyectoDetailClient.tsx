@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { ArrowLeft, Calendar, CircleDollarSign, Percent } from 'lucide-react'
+import { ArrowLeft, Calendar, CircleDollarSign, Percent, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,6 +25,7 @@ import {
 } from '@/lib/constants'
 import { formatEUR, formatDate } from '@/lib/utils'
 import type { Proyecto, Transaccion } from '@/types'
+import type { Usuario } from '@/lib/profile'
 
 const PRIORIDAD_COLOR: Record<string, string> = {
   alta: '#FF4444',
@@ -43,9 +44,11 @@ interface Props {
   proyecto: Proyecto
   cliente: { id: string; empresa: string } | null
   transacciones: Transaccion[]
+  esAdmin: boolean
+  usuarios: Usuario[]
 }
 
-export function ProyectoDetailClient({ proyecto: initialProyecto, cliente, transacciones }: Props) {
+export function ProyectoDetailClient({ proyecto: initialProyecto, cliente, transacciones, esAdmin, usuarios }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -57,9 +60,38 @@ export function ProyectoDetailClient({ proyecto: initialProyecto, cliente, trans
   const [fechaEntrega, setFechaEntrega] = useState(initialProyecto.fecha_entrega_estimada ?? '')
   const [porcentaje, setPorcentaje] = useState(String(initialProyecto.porcentaje_completado))
   const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const estadoConfig = ESTADOS_PROYECTO[proyecto.estado]
   const prioridadColor = PRIORIDAD_COLOR[proyecto.prioridad]
+
+  async function handleDeleteProyecto() {
+    if (!window.confirm('¿Eliminar este proyecto? Esta acción no se puede deshacer.')) return
+    setIsDeleting(true)
+    try {
+      const { error } = await supabase.from('proyectos').delete().eq('id', proyecto.id)
+      if (error) throw error
+      toast.success('Proyecto eliminado')
+      router.push('/proyectos')
+    } catch {
+      toast.error('Error eliminando proyecto')
+      setIsDeleting(false)
+    }
+  }
+
+  async function handleUpdateOwner(userId: string | null) {
+    if (!userId) return
+    const { error } = await supabase
+      .from('proyectos')
+      .update({ owner_id: userId })
+      .eq('id', proyecto.id)
+    if (error) {
+      toast.error('Error actualizando responsable')
+    } else {
+      setProyecto((prev) => ({ ...prev, owner_id: userId }))
+      toast.success('Responsable actualizado')
+    }
+  }
 
   async function handleUpdateEstado(v: string | null) {
     const nuevoEstado = (v ?? proyecto.estado) as EstadoProyecto
@@ -137,6 +169,18 @@ export function ProyectoDetailClient({ proyecto: initialProyecto, cliente, trans
         >
           {proyecto.prioridad.toUpperCase()}
         </span>
+        {esAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDeleteProyecto}
+            disabled={isDeleting}
+            className="text-telkora-danger hover:bg-telkora-danger/10 hover:text-telkora-danger"
+          >
+            <Trash2 className="mr-1.5 size-4" />
+            {isDeleting ? 'Eliminando…' : 'Eliminar proyecto'}
+          </Button>
+        )}
       </div>
 
       {/* Two-column grid */}
@@ -340,6 +384,27 @@ export function ProyectoDetailClient({ proyecto: initialProyecto, cliente, trans
                   {PRIORIDADES_PROYECTO.find((p) => p.value === proyecto.prioridad)?.label ?? proyecto.prioridad}
                 </span>
               </div>
+
+              {esAdmin && usuarios.length > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-telkora-muted">Asignado a</Label>
+                  <Select
+                    value={proyecto.owner_id ?? ''}
+                    onValueChange={(v) => handleUpdateOwner(v)}
+                  >
+                    <SelectTrigger className="h-8 border-telkora-border bg-telkora-card2 text-xs text-telkora-text focus:ring-telkora-accent">
+                      <SelectValue placeholder="Sin asignar" />
+                    </SelectTrigger>
+                    <SelectContent className="border-telkora-border bg-telkora-card">
+                      {usuarios.map((u) => (
+                        <SelectItem key={u.userId} value={u.userId} className="text-xs text-telkora-text">
+                          {u.nombre}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           </section>
 

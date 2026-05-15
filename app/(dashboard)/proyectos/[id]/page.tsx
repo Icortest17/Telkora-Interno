@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { getPerfil } from '@/lib/profile'
+import { getPerfil, getUsuarios } from '@/lib/profile'
 import { ProyectoDetailClient } from '@/components/proyectos/ProyectoDetailClient'
 
 interface Props {
@@ -24,23 +24,21 @@ export default async function ProyectoDetailPage({ params }: Props) {
 
   if (perfil.rol === 'socio' && proyecto.owner_id !== perfil.userId) notFound()
 
-  const { data: cliente } = await supabase
-    .from('clientes')
-    .select('id, empresa')
-    .eq('id', proyecto.cliente_id)
-    .single()
+  const esAdmin = perfil.rol === 'admin'
 
-  const { data: transacciones } = await supabase
-    .from('transacciones')
-    .select('*')
-    .eq('proyecto_id', id)
-    .order('created_at', { ascending: false })
+  const [clienteResult, transaccionesResult, usuarios] = await Promise.all([
+    supabase.from('clientes').select('id, empresa').eq('id', proyecto.cliente_id).single(),
+    supabase.from('transacciones').select('*').eq('proyecto_id', id).order('created_at', { ascending: false }),
+    esAdmin ? getUsuarios() : Promise.resolve([]),
+  ])
 
   return (
     <ProyectoDetailClient
       proyecto={proyecto}
-      cliente={cliente ?? null}
-      transacciones={transacciones ?? []}
+      cliente={clienteResult.data ?? null}
+      transacciones={transaccionesResult.data ?? []}
+      esAdmin={esAdmin}
+      usuarios={usuarios}
     />
   )
 }
