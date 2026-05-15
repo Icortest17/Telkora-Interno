@@ -50,9 +50,14 @@ export function ClienteDetailClient({ initialCliente, proyectos, esAdmin }: Prop
   )
 
   async function handleDeleteCliente() {
-    if (!window.confirm('¿Eliminar este cliente? Esta acción no se puede deshacer.')) return
+    if (!window.confirm('¿Eliminar este cliente? Se desvinculan sus proyectos y transacciones.')) return
     setIsDeleting(true)
     try {
+      // Desvincula proyectos y transacciones referenciados a este cliente (FK NO ACTION)
+      await Promise.all([
+        supabase.from('proyectos').update({ cliente_id: null }).eq('cliente_id', cliente.id),
+        supabase.from('transacciones').update({ cliente_id: null }).eq('cliente_id', cliente.id),
+      ])
       const { error } = await supabase.from('clientes').delete().eq('id', cliente.id)
       if (error) throw error
       toast.success('Cliente eliminado')

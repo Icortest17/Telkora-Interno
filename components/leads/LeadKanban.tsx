@@ -116,7 +116,7 @@ export function LeadKanban({
 
   const filteredLeads = useMemo(() => {
     return leads.filter((l) => {
-      if (soloMios && l.responsable_id !== currentUserId) return false
+      if (soloMios && l.owner_id !== currentUserId) return false
       if (sector !== 'todos' && l.sector !== sector) return false
       if (fuente !== 'todas' && l.fuente !== fuente) return false
       if (prioridad !== 'todas' && String(l.prioridad_score) !== prioridad) return false

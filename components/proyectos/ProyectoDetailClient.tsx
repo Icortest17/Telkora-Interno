@@ -69,6 +69,8 @@ export function ProyectoDetailClient({ proyecto: initialProyecto, cliente, trans
     if (!window.confirm('¿Eliminar este proyecto? Esta acción no se puede deshacer.')) return
     setIsDeleting(true)
     try {
+      // Desvincula transacciones ligadas a este proyecto (FK NO ACTION)
+      await supabase.from('transacciones').update({ proyecto_id: null }).eq('proyecto_id', proyecto.id)
       const { error } = await supabase.from('proyectos').delete().eq('id', proyecto.id)
       if (error) throw error
       toast.success('Proyecto eliminado')

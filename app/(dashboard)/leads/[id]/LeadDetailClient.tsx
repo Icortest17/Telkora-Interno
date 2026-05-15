@@ -143,6 +143,9 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
     if (!window.confirm('¿Eliminar este lead? Esta acción no se puede deshacer.')) return
     setIsDeleting(true)
     try {
+      // Desvincula cualquier cliente que tenga este lead como origen (FK NO ACTION)
+      await supabase.from('clientes').update({ lead_origen_id: null }).eq('lead_origen_id', lead.id)
+      // lead_actividades se borra automáticamente (CASCADE)
       const { error } = await supabase.from('leads').delete().eq('id', lead.id)
       if (error) throw error
       toast.success('Lead eliminado')

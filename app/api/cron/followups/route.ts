@@ -63,7 +63,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const now = new Date().toISOString()
-  const closedStates = ['cerrado_ganado', 'cerrado_perdido']
+  // Excluir cerrados y pausados (formato PostgREST con comillas para strings)
+  const excludedStates = '("cerrado_ganado","cerrado_perdido","pausado")'
 
   let notified = 0
 
@@ -77,7 +78,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       .select('empresa, estado, proximo_followup')
       .eq('owner_id', perfil.user_id)
       .lt('proximo_followup', now)
-      .not('estado', 'in', `(${closedStates.join(',')})`)
+      .not('estado', 'in', excludedStates)
 
     if (leadsError) {
       console.error(
