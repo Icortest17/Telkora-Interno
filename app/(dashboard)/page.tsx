@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { getPerfil } from '@/lib/profile'
+import { getPerfil, getUsuarios } from '@/lib/profile'
 import Link from 'next/link'
 import { formatEUR, formatDate, isFollowupUrgente } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -64,6 +64,28 @@ export default async function DashboardPage() {
     (a, b) =>
       (Object.keys(ESTADOS_LEAD).indexOf(a[0]) ?? 99) -
       (Object.keys(ESTADOS_LEAD).indexOf(b[0]) ?? 99)
+  )
+
+  // Obtener lista de usuarios para comparativa admin
+  const usuarios = esSocio ? [] : await getUsuarios()
+
+  // Métricas por usuario (solo admin)
+  const metricasPorUsuario = esSocio ? [] : await Promise.all(
+    usuarios.map(async (u) => {
+      const [leadsRes, proyRes, txRes] = await Promise.all([
+        supabase.from('leads').select('estado, valor_estimado, valor_ponderado').eq('owner_id', u.userId),
+        supabase.from('proyectos').select('estado').eq('owner_id', u.userId).not('estado', 'in', '("entregado","cancelado","pausado")'),
+        supabase.from('transacciones').select('tipo, importe, estado').eq('owner_id', u.userId),
+      ])
+      const leadsData = leadsRes.data ?? []
+      const leadsActivos = leadsData.filter(l => !['cerrado_ganado', 'cerrado_perdido', 'pausado'].includes(l.estado)).length
+      const leadsCerrados = leadsData.filter(l => l.estado === 'cerrado_ganado').length
+      const valorPipeline = leadsData.filter(l => ['propuesta', 'negociacion'].includes(l.estado)).reduce((s, l) => s + (l.valor_ponderado ?? 0), 0)
+      const proyectosActivos = proyRes.data?.length ?? 0
+      const txData = txRes.data ?? []
+      const ingresosMes = txData.filter(t => t.tipo === 'ingreso' && t.estado === 'cobrada').reduce((s, t) => s + t.importe, 0)
+      return { ...u, leadsActivos, leadsCerrados, valorPipeline, proyectosActivos, ingresosMes }
+    })
   )
 
   const METRICAS = [
@@ -178,6 +200,59 @@ export default async function DashboardPage() {
           </table>
         </section>
       </div>
+
+      {/* Comparativa por socio — solo admin */}
+      {!esSocio && metricasPorUsuario.length > 0 && (
+        <section className="rounded-xl border border-telkora-border bg-telkora-card p-5">
+          <h2 className="mb-4 text-sm font-semibold text-telkora-text">Comparativa por socio</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-telkora-border">
+                  <th className="pb-2 text-left text-telkora-muted">Socio</th>
+                  <th className="pb-2 text-right text-telkora-muted">Leads activos</th>
+                  <th className="pb-2 text-right text-telkora-muted">Cerrados ganados</th>
+                  <th className="pb-2 text-right text-telkora-muted">Pipeline</th>
+                  <th className="pb-2 text-right text-telkora-muted">Proyectos</th>
+                  <th className="pb-2 text-right text-telkora-muted">Facturado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metricasPorUsuario.map((u) => (
+                  <tr key={u.userId} className="border-b border-telkora-border/50">
+                    <td className="py-2 font-medium text-telkora-text">{u.nombre}</td>
+                    <td className="py-2 text-right text-telkora-text">{u.leadsActivos}</td>
+                    <td className="py-2 text-right text-telkora-accent">{u.leadsCerrados}</td>
+                    <td className="py-2 text-right text-telkora-text">{formatEUR(u.valorPipeline)}</td>
+                    <td className="py-2 text-right text-telkora-text">{u.proyectosActivos}</td>
+                    <td className="py-2 text-right text-telkora-text">{formatEUR(u.ingresosMes)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-telkora-border">
+                  <td className="py-2 font-medium text-telkora-text">Total</td>
+                  <td className="py-2 text-right font-medium text-telkora-text">
+                    {metricasPorUsuario.reduce((s, u) => s + u.leadsActivos, 0)}
+                  </td>
+                  <td className="py-2 text-right font-medium text-telkora-accent">
+                    {metricasPorUsuario.reduce((s, u) => s + u.leadsCerrados, 0)}
+                  </td>
+                  <td className="py-2 text-right font-medium text-telkora-text">
+                    {formatEUR(metricasPorUsuario.reduce((s, u) => s + u.valorPipeline, 0))}
+                  </td>
+                  <td className="py-2 text-right font-medium text-telkora-text">
+                    {metricasPorUsuario.reduce((s, u) => s + u.proyectosActivos, 0)}
+                  </td>
+                  <td className="py-2 text-right font-medium text-telkora-accent">
+                    {formatEUR(metricasPorUsuario.reduce((s, u) => s + u.ingresosMes, 0))}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   )
 }

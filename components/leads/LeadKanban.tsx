@@ -22,6 +22,7 @@ import { LeadCard } from './LeadCard'
 import { LeadFilters } from './LeadFilters'
 import { LeadForm } from './LeadForm'
 import { ImportCSV } from './ImportCSV'
+import { LeadListView } from './LeadListView'
 import { formatEUR } from '@/lib/utils'
 import { ESTADOS_LEAD, ESTADOS_LEAD_ORDER } from '@/lib/constants'
 import type { Lead, EstadoLead } from '@/types'
@@ -106,6 +107,7 @@ export function LeadKanban({
   const [fuente, setFuente] = useState('todas')
   const [prioridad, setPrioridad] = useState('todas')
   const [soloMios, setSoloMios] = useState(false)
+  const [vista, setVista] = useState<'kanban' | 'lista'>('kanban')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -182,30 +184,37 @@ export function LeadKanban({
         soloMios={soloMios} onSoloMiosChange={setSoloMios}
         onNuevoLead={() => setShowForm(true)}
         onImportar={() => setShowImport(true)}
+        vista={vista} onVistaChange={setVista}
       />
 
-      {/* Kanban board */}
-      <div className="flex-1 overflow-x-auto pb-4">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCorners}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
-            {ESTADOS_LEAD_ORDER.map((estado) => (
-              <KanbanColumn
-                key={estado}
-                estado={estado}
-                leads={leadsByEstado[estado]}
-              />
-            ))}
-          </div>
-          <DragOverlay>
-            {activeLead ? <LeadCard lead={activeLead} /> : null}
-          </DragOverlay>
-        </DndContext>
-      </div>
+      {/* Board / List */}
+      {vista === 'lista' ? (
+        <div className="flex-1 overflow-y-auto pb-4">
+          <LeadListView leads={filteredLeads} />
+        </div>
+      ) : (
+        <div className="flex-1 overflow-x-auto pb-4">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
+              {ESTADOS_LEAD_ORDER.map((estado) => (
+                <KanbanColumn
+                  key={estado}
+                  estado={estado}
+                  leads={leadsByEstado[estado]}
+                />
+              ))}
+            </div>
+            <DragOverlay>
+              {activeLead ? <LeadCard lead={activeLead} /> : null}
+            </DragOverlay>
+          </DndContext>
+        </div>
+      )}
 
       <LeadForm
         open={showForm}

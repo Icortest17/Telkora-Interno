@@ -34,6 +34,18 @@ export function LeadKanbanWrapper({ initialLeads, currentUserId, usuarios = [], 
       try {
         const { error } = await supabase.from('leads').update({ estado: nuevoEstado }).eq('id', leadId)
         if (error) throw error
+
+        // Fire-and-forget notification when a lead is won
+        if (nuevoEstado === 'cerrado_ganado') {
+          fetch('/api/notify/lead-ganado', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leadId }),
+          }).catch((notifyErr: unknown) => {
+            console.error('[LeadKanbanWrapper] notify/lead-ganado error:', notifyErr)
+          })
+        }
+
         await supabase.from('lead_actividades').insert({
           lead_id: leadId,
           usuario_id: userId,

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   DndContext,
   DragOverlay,
@@ -37,10 +38,12 @@ function ProyectoColumn({
   estado,
   proyectos,
   clienteMap,
+  onCardClick,
 }: {
   estado: EstadoProyecto
   proyectos: Proyecto[]
   clienteMap: Map<string, string>
+  onCardClick: (id: string) => void
 }) {
   const config = ESTADOS_PROYECTO[estado]
   const { setNodeRef, isOver } = useDroppable({ id: estado })
@@ -75,6 +78,7 @@ function ProyectoColumn({
               key={proyecto.id}
               proyecto={proyecto}
               clienteNombre={clienteMap.get(proyecto.cliente_id)}
+              onClick={() => onCardClick(proyecto.id)}
             />
           ))}
         </SortableContext>
@@ -85,6 +89,7 @@ function ProyectoColumn({
 
 export function KanbanProyectos({ proyectos: initialProyectos, clientes, currentUserId, usuarios = [], esAdmin = false }: KanbanProyectosProps) {
   const supabase = createClient()
+  const router = useRouter()
   const [proyectos, setProyectos] = useState<Proyecto[]>(initialProyectos)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -192,6 +197,7 @@ export function KanbanProyectos({ proyectos: initialProyectos, clientes, current
                 estado={estado}
                 proyectos={proyectosByEstado[estado]}
                 clienteMap={clienteMap}
+                onCardClick={(id) => router.push('/proyectos/' + id)}
               />
             ))}
           </div>

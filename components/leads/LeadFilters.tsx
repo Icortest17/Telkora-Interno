@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search, Plus, Upload } from 'lucide-react'
+import { Search, Plus, Upload, LayoutGrid, List } from 'lucide-react'
 import { SECTORES, FUENTES } from '@/lib/constants'
 
 interface LeadFiltersProps {
@@ -25,6 +25,8 @@ interface LeadFiltersProps {
   onSoloMiosChange: (v: boolean) => void
   onNuevoLead: () => void
   onImportar: () => void
+  vista: 'kanban' | 'lista'
+  onVistaChange: (v: 'kanban' | 'lista') => void
 }
 
 export function LeadFilters({
@@ -34,6 +36,7 @@ export function LeadFilters({
   prioridad, onPrioridadChange,
   soloMios, onSoloMiosChange,
   onNuevoLead, onImportar,
+  vista, onVistaChange,
 }: LeadFiltersProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -110,6 +113,32 @@ export function LeadFilters({
           <SelectItem value="1" className="text-xs text-telkora-muted">Baja</SelectItem>
         </SelectContent>
       </Select>
+
+      {/* Toggle vista */}
+      <div className="flex rounded-md border border-telkora-border bg-telkora-card">
+        <button
+          onClick={() => onVistaChange('kanban')}
+          aria-label="Vista Kanban"
+          className={`flex items-center px-2.5 py-1.5 transition-colors ${
+            vista === 'kanban'
+              ? 'bg-telkora-card2 text-telkora-text'
+              : 'text-telkora-muted hover:text-telkora-text'
+          }`}
+        >
+          <LayoutGrid className="size-3.5" />
+        </button>
+        <button
+          onClick={() => onVistaChange('lista')}
+          aria-label="Vista Lista"
+          className={`flex items-center px-2.5 py-1.5 transition-colors ${
+            vista === 'lista'
+              ? 'bg-telkora-card2 text-telkora-text'
+              : 'text-telkora-muted hover:text-telkora-text'
+          }`}
+        >
+          <List className="size-3.5" />
+        </button>
+      </div>
 
       {/* Acciones */}
       <div className="ml-auto flex items-center gap-2">
