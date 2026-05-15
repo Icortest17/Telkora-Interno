@@ -5,7 +5,7 @@ import { formatEUR, formatDate, isFollowupUrgente } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { AlertTriangle, TrendingUp, Users, BarChart2, FolderKanban } from 'lucide-react'
 import type { Lead, EstadoLead } from '@/types'
-import { ESTADOS_LEAD } from '@/lib/constants'
+import { ESTADOS_LEAD, ESTADOS_PIPELINE } from '@/lib/constants'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -40,7 +40,7 @@ export default async function DashboardPage() {
   const mrrActual = clientes.reduce((s, c) => s + (c.mrr ?? 0), 0)
 
   const valorPipeline = leads
-    .filter((l) => ['propuesta', 'negociacion'].includes(l.estado))
+    .filter((l) => (ESTADOS_PIPELINE as string[]).includes(l.estado))
     .reduce((s, l) => s + (l.valor_ponderado ?? 0), 0)
 
   // Leads urgentes
@@ -80,7 +80,7 @@ export default async function DashboardPage() {
       const leadsData = leadsRes.data ?? []
       const leadsActivos = leadsData.filter(l => !['cerrado_ganado', 'cerrado_perdido', 'pausado'].includes(l.estado)).length
       const leadsCerrados = leadsData.filter(l => l.estado === 'cerrado_ganado').length
-      const valorPipeline = leadsData.filter(l => ['propuesta', 'negociacion'].includes(l.estado)).reduce((s, l) => s + (l.valor_ponderado ?? 0), 0)
+      const valorPipeline = leadsData.filter(l => (ESTADOS_PIPELINE as string[]).includes(l.estado)).reduce((s, l) => s + (l.valor_ponderado ?? 0), 0)
       const proyectosActivos = proyRes.data?.length ?? 0
       const txData = txRes.data ?? []
       const ingresosMes = txData.filter(t => t.tipo === 'ingreso' && t.estado === 'cobrada').reduce((s, t) => s + t.importe, 0)

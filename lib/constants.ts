@@ -83,6 +83,24 @@ export const ESTADOS_LEAD_ORDER: EstadoLead[] = [
   'pausado',
 ]
 
+// Estados que cuentan como "pipeline activo" (leads con los que hay interacción real)
+// Excluye: prospecto (pre-contacto), cerrado_ganado/perdido, pausado
+export const ESTADOS_PIPELINE: EstadoLead[] = [
+  'contactado',
+  'reunion',
+  'propuesta',
+  'negociacion',
+]
+
+// Estados de leads activos (sin cerrar ni pausar)
+export const ESTADOS_ACTIVOS: EstadoLead[] = [
+  'prospecto',
+  'contactado',
+  'reunion',
+  'propuesta',
+  'negociacion',
+]
+
 export const ESTADOS_PROYECTO = {
   briefing:      { label: 'Briefing',       bg: '#1A1A3A', color: '#6677FF' },
   desarrollo:    { label: 'En desarrollo',  bg: '#0D2A1A', color: '#00CC6A' },
