@@ -1,6 +1,9 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialization to avoid build-time errors when RESEND_API_KEY is not set
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY ?? '')
+}
 
 const FROM = 'Telkora Interno <noreply@telkora.com>'
 
@@ -52,7 +55,7 @@ export async function sendFollowupUrgente(
 </div>`
 
   try {
-    await resend.emails.send({
+    await getResend().emails.send({
       from: FROM,
       to,
       subject: `[Telkora] ${leads.length} follow-up${leads.length !== 1 ? 's' : ''} vencido${leads.length !== 1 ? 's' : ''}`,
@@ -88,7 +91,7 @@ export async function sendLeadCerradoGanado(
 </div>`
 
   try {
-    await resend.emails.send({
+    await getResend().emails.send({
       from: FROM,
       to,
       subject: `[Telkora] Nuevo cliente ganado: ${empresa}`,
@@ -124,7 +127,7 @@ export async function sendTransaccionVencida(
 </div>`
 
   try {
-    await resend.emails.send({
+    await getResend().emails.send({
       from: FROM,
       to,
       subject: `[Telkora] Transaccion vencida: ${concepto}`,
