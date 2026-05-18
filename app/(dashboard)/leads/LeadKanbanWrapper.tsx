@@ -63,6 +63,39 @@ export function LeadKanbanWrapper({ initialLeads, currentUserId, usuarios = [], 
     [leads, supabase]
   )
 
+  const updateFollowup = useCallback(async (leadId: string, fecha: string | null) => {
+    setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, proximo_followup: fecha } : l))
+    try {
+      const { error } = await supabase.from('leads').update({ proximo_followup: fecha }).eq('id', leadId)
+      if (error) throw error
+      toast.success('Follow-up actualizado')
+    } catch {
+      toast.error('Error actualizando follow-up')
+    }
+  }, [supabase])
+
+  const bulkUpdateEstado = useCallback(async (ids: string[], nuevoEstado: EstadoLead) => {
+    setLeads((prev) => prev.map((l) => ids.includes(l.id) ? { ...l, estado: nuevoEstado } : l))
+    try {
+      const { error } = await supabase.from('leads').update({ estado: nuevoEstado }).in('id', ids)
+      if (error) throw error
+      toast.success(`${ids.length} lead${ids.length !== 1 ? 's' : ''} actualizados`)
+    } catch {
+      toast.error('Error en actualización masiva')
+    }
+  }, [supabase])
+
+  const bulkAssign = useCallback(async (ids: string[], userId: string) => {
+    setLeads((prev) => prev.map((l) => ids.includes(l.id) ? { ...l, owner_id: userId } : l))
+    try {
+      const { error } = await supabase.from('leads').update({ owner_id: userId }).in('id', ids)
+      if (error) throw error
+      toast.success(`${ids.length} lead${ids.length !== 1 ? 's' : ''} reasignados`)
+    } catch {
+      toast.error('Error en reasignación masiva')
+    }
+  }, [supabase])
+
   const createLead = useCallback(
     async (data: Partial<Lead>) => {
       try {
@@ -77,7 +110,7 @@ export function LeadKanbanWrapper({ initialLeads, currentUserId, usuarios = [], 
         return null
       }
     },
-    [supabase]
+    [supabase, currentUserId]
   )
 
   return (
@@ -87,6 +120,9 @@ export function LeadKanbanWrapper({ initialLeads, currentUserId, usuarios = [], 
       usuarios={usuarios}
       esAdmin={esAdmin}
       onUpdateEstado={updateEstado}
+      onUpdateFollowup={updateFollowup}
+      onBulkUpdateEstado={bulkUpdateEstado}
+      onBulkAssign={bulkAssign}
       onCreateLead={createLead}
       onRefresh={refresh}
     />
