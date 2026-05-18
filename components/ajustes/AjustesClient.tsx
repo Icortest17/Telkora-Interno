@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import {
   User, Building2, GitBranch, Bell, LogOut,
   Save, Eye, EyeOff, Shield, Palette, Target,
+  Download, Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -37,7 +38,7 @@ interface AjustesClientProps {
   metasIniciales?: MetasMes
 }
 
-type Tab = 'perfil' | 'empresa' | 'pipeline' | 'alertas' | 'metas' | 'apariencia' | 'sesion'
+type Tab = 'perfil' | 'empresa' | 'pipeline' | 'alertas' | 'metas' | 'apariencia' | 'sesion' | 'exportar' | 'equipo'
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'perfil',     label: 'Mi perfil',     icon: User },
@@ -46,8 +47,17 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'alertas',    label: 'Alertas',        icon: Bell },
   { id: 'metas',      label: 'Metas del mes',  icon: Target },
   { id: 'apariencia', label: 'Apariencia',     icon: Palette },
+  { id: 'exportar',   label: 'Exportar',       icon: Download },
+  { id: 'equipo',     label: 'Equipo',         icon: Users },
   { id: 'sesion',     label: 'Sesión',         icon: Shield },
 ]
+
+interface PerfilRow {
+  user_id: string
+  nombre: string
+  rol: string
+  created_at: string | null
+}
 
 export function AjustesClient({ user, config, metasIniciales }: AjustesClientProps) {
   const supabase = createClient()
@@ -161,6 +171,99 @@ export function AjustesClient({ user, config, metasIniciales }: AjustesClientPro
     await supabase.auth.signOut()
     router.push('/login')
   }
+
+  // ── Exportar ─────────────────────────────────────────────
+  const [exportingLeads, setExportingLeads] = useState(false)
+  const [exportingClientes, setExportingClientes] = useState(false)
+  const [exportingTx, setExportingTx] = useState(false)
+
+  function toCSV(rows: Record<string, unknown>[]): string {
+    if (rows.length === 0) return ''
+    const headers = Object.keys(rows[0])
+    const lines = [
+      headers.join(','),
+      ...rows.map((row) =>
+        headers.map((h) => {
+          const val = row[h]
+          if (val === null || val === undefined) return ''
+          if (val instanceof Date) return val.toISOString()
+          const str = String(val)
+          return str.includes(',') || str.includes('"') || str.includes('\n')
+            ? `"${str.replace(/"/g, '""')}"`
+            : str
+        }).join(',')
+      ),
+    ]
+    return lines.join('\n')
+  }
+
+  function downloadCSV(content: string, filename: string) {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    window.URL.revokeObjectURL(url)
+  }
+
+  async function handleExportLeads() {
+    setExportingLeads(true)
+    try {
+      const { data, error } = await supabase.from('leads').select('*')
+      if (error) throw error
+      downloadCSV(toCSV((data ?? []) as Record<string, unknown>[]), 'leads.csv')
+      toast.success('Leads exportados')
+    } catch {
+      toast.error('Error exportando leads')
+    } finally {
+      setExportingLeads(false)
+    }
+  }
+
+  async function handleExportClientes() {
+    setExportingClientes(true)
+    try {
+      const { data, error } = await supabase.from('clientes').select('*')
+      if (error) throw error
+      downloadCSV(toCSV((data ?? []) as Record<string, unknown>[]), 'clientes.csv')
+      toast.success('Clientes exportados')
+    } catch {
+      toast.error('Error exportando clientes')
+    } finally {
+      setExportingClientes(false)
+    }
+  }
+
+  async function handleExportTransacciones() {
+    setExportingTx(true)
+    try {
+      const { data, error } = await supabase.from('transacciones').select('*')
+      if (error) throw error
+      downloadCSV(toCSV((data ?? []) as Record<string, unknown>[]), 'transacciones.csv')
+      toast.success('Transacciones exportadas')
+    } catch {
+      toast.error('Error exportando transacciones')
+    } finally {
+      setExportingTx(false)
+    }
+  }
+
+  // ── Equipo ────────────────────────────────────────────────
+  const [perfiles, setPerfiles] = useState<PerfilRow[]>([])
+  const [loadingPerfiles, setLoadingPerfiles] = useState(false)
+
+  useEffect(() => {
+    if (tab !== 'equipo') return
+    setLoadingPerfiles(true)
+    supabase
+      .from('perfiles')
+      .select('user_id, nombre, rol, created_at')
+      .then(({ data }) => {
+        setPerfiles((data as PerfilRow[] | null) ?? [])
+        setLoadingPerfiles(false)
+      })
+  }, [tab, supabase])
 
   const inputCls = 'w-full rounded-lg border border-telkora-border bg-telkora-bg px-3 py-2 text-sm text-telkora-text placeholder:text-telkora-muted focus:outline-none focus:border-telkora-accent'
   const labelCls = 'block text-xs font-medium text-telkora-muted mb-1'
@@ -568,6 +671,116 @@ export function AjustesClient({ user, config, metasIniciales }: AjustesClientPro
                   ))}
                 </div>
                 <p className="mt-2 text-xs text-telkora-muted">La personalización de colores estará disponible en próximas versiones</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── EXPORTAR ── */}
+        {tab === 'exportar' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-base font-semibold text-telkora-text">Exportar datos</h2>
+              <p className="text-xs text-telkora-muted mt-0.5">Descarga tus datos en formato CSV</p>
+            </div>
+
+            <div className="rounded-xl border border-telkora-border bg-telkora-card p-5 space-y-4">
+              <div className="flex items-center justify-between rounded-lg border border-telkora-border/50 bg-telkora-card2 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-telkora-text">Leads</p>
+                  <p className="text-xs text-telkora-muted">Todos los leads del pipeline</p>
+                </div>
+                <Button
+                  onClick={handleExportLeads}
+                  disabled={exportingLeads}
+                  className="bg-telkora-accent text-telkora-bg hover:bg-telkora-accent2 text-sm"
+                >
+                  <Download className="mr-2 size-4" />
+                  {exportingLeads ? 'Exportando…' : 'Exportar Leads CSV'}
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-telkora-border/50 bg-telkora-card2 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-telkora-text">Clientes</p>
+                  <p className="text-xs text-telkora-muted">Todos los clientes activos e inactivos</p>
+                </div>
+                <Button
+                  onClick={handleExportClientes}
+                  disabled={exportingClientes}
+                  className="bg-telkora-accent text-telkora-bg hover:bg-telkora-accent2 text-sm"
+                >
+                  <Download className="mr-2 size-4" />
+                  {exportingClientes ? 'Exportando…' : 'Exportar Clientes CSV'}
+                </Button>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border border-telkora-border/50 bg-telkora-card2 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-telkora-text">Transacciones</p>
+                  <p className="text-xs text-telkora-muted">Ingresos y gastos registrados</p>
+                </div>
+                <Button
+                  onClick={handleExportTransacciones}
+                  disabled={exportingTx}
+                  className="bg-telkora-accent text-telkora-bg hover:bg-telkora-accent2 text-sm"
+                >
+                  <Download className="mr-2 size-4" />
+                  {exportingTx ? 'Exportando…' : 'Exportar Transacciones CSV'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── EQUIPO ── */}
+        {tab === 'equipo' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-base font-semibold text-telkora-text">Equipo</h2>
+              <p className="text-xs text-telkora-muted mt-0.5">Miembros con acceso a la plataforma</p>
+            </div>
+
+            <div className="rounded-xl border border-telkora-border bg-telkora-card p-5 space-y-4">
+              {loadingPerfiles ? (
+                <p className="text-xs text-telkora-muted py-4 text-center">Cargando…</p>
+              ) : perfiles.length === 0 ? (
+                <p className="text-xs text-telkora-muted py-4 text-center">Sin miembros registrados</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-telkora-border text-left text-telkora-muted">
+                        <th className="pb-2 pr-4 font-medium">Nombre</th>
+                        <th className="pb-2 pr-4 font-medium">Rol</th>
+                        <th className="pb-2 font-medium">Fecha registro</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-telkora-border/50">
+                      {perfiles.map((p) => (
+                        <tr key={p.user_id}>
+                          <td className="py-2.5 pr-4 font-medium text-telkora-text">{p.nombre || '—'}</td>
+                          <td className="py-2.5 pr-4">
+                            <span className="rounded bg-telkora-accent/10 px-2 py-0.5 text-telkora-accent capitalize">
+                              {p.rol ?? 'socio'}
+                            </span>
+                          </td>
+                          <td className="py-2.5 text-telkora-muted">
+                            {p.created_at
+                              ? new Date(p.created_at).toLocaleDateString('es-ES')
+                              : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="rounded-lg border border-telkora-border/50 bg-telkora-card2 p-3">
+                <p className="text-xs text-telkora-muted">
+                  La invitación de nuevos miembros se gestiona desde el panel de Supabase Auth.
+                </p>
               </div>
             </div>
           </div>

@@ -11,6 +11,7 @@ import {
   DollarSign,
   Settings,
   CalendarDays,
+  BarChart2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +19,7 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ElementType; soon?: 
   { href: '/',            label: 'Dashboard',         icon: LayoutDashboard },
   { href: '/leads',       label: 'Pipeline de leads', icon: Kanban },
   { href: '/calendario',  label: 'Calendario',        icon: CalendarDays },
+  { href: '/informes',   label: 'Informes',           icon: BarChart2 },
   { href: '/clientes',    label: 'Clientes',          icon: Users },
   { href: '/proyectos', label: 'Proyectos',          icon: FolderKanban },
   { href: '/finanzas',  label: 'Finanzas',           icon: DollarSign },
@@ -28,17 +30,18 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="flex h-screen w-60 flex-shrink-0 flex-col border-r border-telkora-border bg-telkora-card">
+    <aside className="flex h-screen w-14 flex-shrink-0 flex-col border-r border-telkora-border bg-telkora-card lg:w-60">
       {/* Logo */}
-      <div className="flex h-14 items-center border-b border-telkora-border px-5">
-        <span className="text-lg font-bold tracking-tight text-telkora-text">
-          <span className="text-telkora-accent">Telkora</span>
-          <span className="ml-1 text-xs font-normal text-telkora-muted">interno</span>
+      <div className="flex h-14 items-center justify-center border-b border-telkora-border px-2 lg:justify-start lg:px-5">
+        <span className="text-lg font-bold tracking-tight text-telkora-accent lg:text-telkora-text">
+          <span className="text-telkora-accent">T</span>
+          <span className="hidden text-telkora-accent lg:inline">elkora</span>
+          <span className="ml-1 hidden text-xs font-normal text-telkora-muted lg:inline">interno</span>
         </span>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-0.5 p-3">
+      <nav className="flex-1 space-y-0.5 p-2 lg:p-3">
         {NAV_ITEMS.map(({ href, label, icon: Icon, soon }) => {
           const isActive = href === '/'
             ? pathname === '/'
@@ -48,8 +51,9 @@ export function Sidebar() {
             <Link
               key={href}
               href={soon ? '#' : href}
+              title={label}
               className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors',
+                'flex items-center justify-center gap-3 rounded-md px-2 py-2 text-sm transition-colors lg:justify-start lg:px-3',
                 isActive
                   ? 'border-l-2 border-telkora-accent bg-telkora-card2 text-telkora-text'
                   : 'text-telkora-muted hover:bg-telkora-card2 hover:text-telkora-text',
@@ -57,9 +61,9 @@ export function Sidebar() {
               )}
             >
               <Icon className="size-4 flex-shrink-0" />
-              <span className="flex-1">{label}</span>
+              <span className="hidden flex-1 lg:block">{label}</span>
               {soon && (
-                <span className="rounded bg-telkora-card2 px-1.5 py-0.5 text-[10px] text-telkora-muted">
+                <span className="hidden rounded bg-telkora-card2 px-1.5 py-0.5 text-[10px] text-telkora-muted lg:block">
                   Pronto
                 </span>
               )}
@@ -69,8 +73,8 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-telkora-border p-3">
-        <p className="px-3 text-[10px] text-telkora-muted">Telkora © 2026</p>
+      <div className="border-t border-telkora-border p-2 lg:p-3">
+        <p className="hidden px-3 text-[10px] text-telkora-muted lg:block">Telkora © 2026</p>
       </div>
     </aside>
   )

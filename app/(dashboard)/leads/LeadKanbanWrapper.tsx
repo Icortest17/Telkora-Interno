@@ -54,6 +54,39 @@ export function LeadKanbanWrapper({ initialLeads, currentUserId, usuarios = [], 
           estado_anterior: lead.estado,
           estado_nuevo: nuevoEstado,
         })
+
+        // Auto-create cliente when lead closes as won
+        if (nuevoEstado === 'cerrado_ganado' && lead.estado !== 'cerrado_ganado') {
+          const { data: existingCliente } = await supabase
+            .from('clientes')
+            .select('id')
+            .eq('lead_origen_id', leadId)
+            .maybeSingle()
+
+          if (!existingCliente) {
+            const { data: newCliente } = await supabase.from('clientes').insert({
+              empresa: lead.empresa,
+              contacto: lead.contacto,
+              email: lead.email,
+              telefono: lead.telefono,
+              website: lead.website,
+              sector: lead.sector,
+              pais: lead.pais,
+              lead_origen_id: leadId,
+              estado: 'activo',
+              tier: 'bronze',
+              mrr: 0,
+              valor_total_contrato: lead.valor_estimado ?? 0,
+              responsable_id: lead.owner_id,
+              fecha_inicio_relacion: new Date().toISOString().split('T')[0],
+            }).select().single()
+
+            if (newCliente) {
+              toast.success(`Cliente "${lead.empresa}" creado automáticamente`)
+            }
+          }
+        }
+
         toast.success(`Movido a ${nuevoEstado.replace('_', ' ')}`)
       } catch {
         setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, estado: lead.estado } : l))
