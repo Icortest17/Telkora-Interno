@@ -36,6 +36,7 @@ interface AjustesClientProps {
   user: SupabaseUser | null
   config: Configuracion | null
   metasIniciales?: MetasMes
+  esAdmin?: boolean
 }
 
 type Tab = 'perfil' | 'empresa' | 'pipeline' | 'alertas' | 'metas' | 'apariencia' | 'sesion' | 'exportar' | 'equipo'
@@ -59,7 +60,7 @@ interface PerfilRow {
   created_at: string | null
 }
 
-export function AjustesClient({ user, config, metasIniciales }: AjustesClientProps) {
+export function AjustesClient({ user, config, metasIniciales, esAdmin = false }: AjustesClientProps) {
   const supabase = createClient()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('perfil')
@@ -252,6 +253,42 @@ export function AjustesClient({ user, config, metasIniciales }: AjustesClientPro
   // ── Equipo ────────────────────────────────────────────────
   const [perfiles, setPerfiles] = useState<PerfilRow[]>([])
   const [loadingPerfiles, setLoadingPerfiles] = useState(false)
+
+  // ── Invitar usuario ───────────────────────────────────────
+  const [inviteNombre, setInviteNombre] = useState('')
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteSending, setInviteSending] = useState(false)
+  const [inviteSuccess, setInviteSuccess] = useState('')
+  const [inviteError, setInviteError] = useState('')
+
+  async function handleInviteUser() {
+    setInviteSuccess('')
+    setInviteError('')
+    if (!inviteNombre.trim() || !inviteEmail.trim()) {
+      setInviteError('Nombre y email son requeridos')
+      return
+    }
+    setInviteSending(true)
+    try {
+      const res = await fetch('/api/admin/invite-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: inviteEmail.trim(), nombre: inviteNombre.trim() }),
+      })
+      const json = await res.json() as { ok?: boolean; error?: string }
+      if (!res.ok) {
+        setInviteError(json.error ?? 'Error al enviar la invitación')
+      } else {
+        setInviteSuccess(`Invitación enviada a ${inviteEmail.trim()}`)
+        setInviteNombre('')
+        setInviteEmail('')
+      }
+    } catch {
+      setInviteError('Error de red al enviar la invitación')
+    } finally {
+      setInviteSending(false)
+    }
+  }
 
   useEffect(() => {
     if (tab !== 'equipo') return
@@ -741,6 +778,53 @@ export function AjustesClient({ user, config, metasIniciales }: AjustesClientPro
               <p className="text-xs text-telkora-muted mt-0.5">Miembros con acceso a la plataforma</p>
             </div>
 
+            {/* Invite form — admins only */}
+            {esAdmin && (
+              <div className="rounded-xl border border-telkora-border bg-telkora-card p-5 space-y-4">
+                <h3 className="text-sm font-medium text-telkora-text">Invitar nuevo usuario</h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className={labelCls}>Nombre completo *</label>
+                    <input
+                      type="text"
+                      value={inviteNombre}
+                      onChange={(e) => setInviteNombre(e.target.value)}
+                      placeholder="Ana García"
+                      className={inputCls}
+                      disabled={inviteSending}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Email *</label>
+                    <input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="ana@telkora.com"
+                      className={inputCls}
+                      disabled={inviteSending}
+                    />
+                  </div>
+                </div>
+
+                {inviteSuccess && (
+                  <p className="text-xs text-telkora-accent">{inviteSuccess}</p>
+                )}
+                {inviteError && (
+                  <p className="text-xs text-telkora-danger">{inviteError}</p>
+                )}
+
+                <Button
+                  onClick={handleInviteUser}
+                  disabled={inviteSending || !inviteNombre.trim() || !inviteEmail.trim()}
+                  className="bg-telkora-accent text-telkora-bg hover:bg-telkora-accent2 text-sm font-semibold"
+                >
+                  {inviteSending ? 'Enviando…' : 'Enviar invitación'}
+                </Button>
+              </div>
+            )}
+
+            {/* Member list */}
             <div className="rounded-xl border border-telkora-border bg-telkora-card p-5 space-y-4">
               {loadingPerfiles ? (
                 <p className="text-xs text-telkora-muted py-4 text-center">Cargando…</p>
@@ -776,12 +860,6 @@ export function AjustesClient({ user, config, metasIniciales }: AjustesClientPro
                   </table>
                 </div>
               )}
-
-              <div className="rounded-lg border border-telkora-border/50 bg-telkora-card2 p-3">
-                <p className="text-xs text-telkora-muted">
-                  La invitación de nuevos miembros se gestiona desde el panel de Supabase Auth.
-                </p>
-              </div>
             </div>
           </div>
         )}

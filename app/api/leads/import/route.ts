@@ -18,7 +18,10 @@ export async function POST(request: Request) {
     }
   )
   const { data: { user } } = await supabaseAuth.auth.getUser()
-  const ownerId = user?.id ?? null
+  if (!user) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  }
+  const ownerId = user.id
 
   // Service role client for the actual insert (bypasses RLS)
   const supabase = createServerClient(

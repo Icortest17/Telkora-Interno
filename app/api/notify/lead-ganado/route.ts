@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { sendLeadCerradoGanado } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
@@ -15,6 +17,23 @@ interface PerfilRow {
 }
 
 export async function POST(request: Request): Promise<NextResponse> {
+  // Auth check: only authenticated users (called from the app client)
+  const cookieStore = await cookies()
+  const supabaseAuth = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: () => {},
+      },
+    }
+  )
+  const { data: { user } } = await supabaseAuth.auth.getUser()
+  if (!user) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  }
+
   let leadId: string
 
   try {
