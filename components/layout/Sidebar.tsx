@@ -10,13 +10,15 @@ import {
   FolderKanban,
   DollarSign,
   Settings,
+  CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS: { href: string; label: string; icon: React.ElementType; soon?: boolean }[] = [
-  { href: '/',          label: 'Dashboard',         icon: LayoutDashboard },
-  { href: '/leads',     label: 'Pipeline de leads', icon: Kanban },
-  { href: '/clientes',  label: 'Clientes',          icon: Users },
+  { href: '/',            label: 'Dashboard',         icon: LayoutDashboard },
+  { href: '/leads',       label: 'Pipeline de leads', icon: Kanban },
+  { href: '/calendario',  label: 'Calendario',        icon: CalendarDays },
+  { href: '/clientes',    label: 'Clientes',          icon: Users },
   { href: '/proyectos', label: 'Proyectos',          icon: FolderKanban },
   { href: '/finanzas',  label: 'Finanzas',           icon: DollarSign },
   { href: '/ajustes',   label: 'Ajustes',            icon: Settings },

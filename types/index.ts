@@ -49,6 +49,7 @@ export interface Lead {
   rating: number | null
   review_count: number | null
   fuente_apify: boolean
+  adjuntos: { nombre: string; url: string }[] | null
 }
 
 export interface LeadActividad {
@@ -145,4 +146,15 @@ export interface MetricasDashboard {
   mrrActual: number
   valorPipeline: number
   proyectosActivos: number
+}
+
+export type TipoMeta = 'leads_cerrados' | 'pipeline_valor' | 'ingresos'
+
+export interface Meta {
+  id: string
+  user_id: string
+  mes: string
+  tipo: TipoMeta
+  objetivo: number
+  created_at: string
 }

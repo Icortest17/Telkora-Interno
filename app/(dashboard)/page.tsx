@@ -3,9 +3,10 @@ import { getPerfil, getUsuarios } from '@/lib/profile'
 import Link from 'next/link'
 import { formatEUR, formatDate, isFollowupUrgente } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { AlertTriangle, TrendingUp, Users, BarChart2, FolderKanban } from 'lucide-react'
+import { AlertTriangle, TrendingUp, Users, BarChart2, FolderKanban, Target } from 'lucide-react'
 import type { Lead, EstadoLead } from '@/types'
 import { ESTADOS_LEAD, ESTADOS_PIPELINE } from '@/lib/constants'
+import { differenceInDays } from 'date-fns'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -65,6 +66,60 @@ export default async function DashboardPage() {
       (Object.keys(ESTADOS_LEAD).indexOf(a[0]) ?? 99) -
       (Object.keys(ESTADOS_LEAD).indexOf(b[0]) ?? 99)
   )
+
+  // Metas del mes
+  const mesActual = (() => {
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
+  })()
+
+  const { data: metasData } = await supabase
+    .from('metas')
+    .select('tipo, objetivo')
+    .eq('user_id', userId)
+    .eq('mes', mesActual)
+
+  const metas = {
+    leads_cerrados: (metasData ?? []).find((m) => m.tipo === 'leads_cerrados')?.objetivo ?? 0,
+    pipeline_valor: (metasData ?? []).find((m) => m.tipo === 'pipeline_valor')?.objetivo ?? 0,
+    ingresos: (metasData ?? []).find((m) => m.tipo === 'ingresos')?.objetivo ?? 0,
+  }
+
+  // Ingresos del mes actual
+  let ingresosQuery = supabase
+    .from('transacciones')
+    .select('importe, estado, tipo')
+    .eq('tipo', 'ingreso')
+    .eq('estado', 'cobrada')
+    .gte('fecha_cobro', mesActual)
+  if (esSocio) ingresosQuery = ingresosQuery.eq('owner_id', userId) as typeof ingresosQuery
+  const { data: ingresosData } = await ingresosQuery
+  const ingresosMes = (ingresosData ?? []).reduce((s, t) => s + t.importe, 0)
+
+  // Métricas de conversión
+  const totalLeads = leads.length
+  const leadsCerradosGanados = leads.filter((l) => l.estado === 'cerrado_ganado')
+  const tasaConversion = totalLeads > 0 ? (leadsCerradosGanados.length / totalLeads) * 100 : 0
+  const valorMedioDeal = leadsCerradosGanados.length > 0
+    ? leadsCerradosGanados.reduce((s, l) => s + (l.valor_estimado ?? 0), 0) / leadsCerradosGanados.length
+    : 0
+
+  const leadsActivosPipeline = leads.filter((l) => (ESTADOS_PIPELINE as string[]).includes(l.estado))
+  const tiempoMedioPipeline = leadsActivosPipeline.length > 0
+    ? Math.round(
+        leadsActivosPipeline
+          .filter((l) => l.fecha_primer_contacto)
+          .reduce((s, l) => s + differenceInDays(new Date(), new Date(l.fecha_primer_contacto!)), 0) /
+          leadsActivosPipeline.filter((l) => l.fecha_primer_contacto).length || 0
+      )
+    : 0
+
+  // Embudo pipeline activo (solo estados pipeline)
+  const embudoStats = (ESTADOS_PIPELINE as EstadoLead[]).map((estado) => {
+    const count = leads.filter((l) => l.estado === estado).length
+    return { estado, count }
+  })
+  const maxEmbudoCount = Math.max(...embudoStats.map((s) => s.count), 1)
 
   // Obtener lista de usuarios para comparativa admin
   const usuarios = esSocio ? [] : await getUsuarios()
@@ -200,6 +255,137 @@ export default async function DashboardPage() {
           </table>
         </section>
       </div>
+
+      {/* Embudo de conversión */}
+      <section className="rounded-xl border border-telkora-border bg-telkora-card p-5">
+        <h2 className="mb-4 text-sm font-semibold text-telkora-text">Embudo de conversión</h2>
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+          {/* Barras del funnel */}
+          <div className="space-y-3">
+            {embudoStats.map(({ estado, count }) => {
+              const pct = maxEmbudoCount > 0 ? Math.round((count / maxEmbudoCount) * 100) : 0
+              const cfg = ESTADOS_LEAD[estado]
+              return (
+                <div key={estado}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="text-telkora-muted">{cfg.label}</span>
+                    <span className="font-medium text-telkora-text">{count}</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-telkora-card2">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${pct}%`, backgroundColor: cfg.color }}
+                    />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Métricas clave */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            <div className="rounded-lg border border-telkora-border bg-telkora-card2 p-3">
+              <p className="text-[11px] text-telkora-muted">Tasa de conversión</p>
+              <p className="mt-1 text-xl font-bold text-telkora-accent">
+                {tasaConversion.toFixed(1)}%
+              </p>
+              <p className="text-[10px] text-telkora-muted">{leadsCerradosGanados.length} de {totalLeads} leads</p>
+            </div>
+            <div className="rounded-lg border border-telkora-border bg-telkora-card2 p-3">
+              <p className="text-[11px] text-telkora-muted">Valor medio deal</p>
+              <p className="mt-1 text-xl font-bold text-telkora-text">
+                {formatEUR(valorMedioDeal)}
+              </p>
+              <p className="text-[10px] text-telkora-muted">Leads cerrados ganados</p>
+            </div>
+            <div className="rounded-lg border border-telkora-border bg-telkora-card2 p-3">
+              <p className="text-[11px] text-telkora-muted">Tiempo en pipeline</p>
+              <p className="mt-1 text-xl font-bold text-telkora-text">
+                {tiempoMedioPipeline}d
+              </p>
+              <p className="text-[10px] text-telkora-muted">Promedio leads activos</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Progreso hacia metas */}
+      {(metas.leads_cerrados > 0 || metas.pipeline_valor > 0 || metas.ingresos > 0) && (
+        <section className="rounded-xl border border-telkora-border bg-telkora-card p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Target className="size-4 text-telkora-accent" />
+              <h2 className="text-sm font-semibold text-telkora-text">Progreso hacia metas</h2>
+            </div>
+            <Link href="/ajustes" className="text-xs text-telkora-muted hover:text-telkora-accent">
+              Editar metas →
+            </Link>
+          </div>
+          <div className="space-y-4">
+            {metas.leads_cerrados > 0 && (() => {
+              const actual = leadsCerradosGanados.length
+              const pct = Math.min(Math.round((actual / metas.leads_cerrados) * 100), 100)
+              return (
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between text-xs">
+                    <span className="text-telkora-muted">Leads cerrados</span>
+                    <span className="font-medium text-telkora-text">
+                      {actual} / {metas.leads_cerrados} ({pct}%)
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-telkora-card2">
+                    <div
+                      className="h-full rounded-full bg-telkora-accent transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })()}
+            {metas.pipeline_valor > 0 && (() => {
+              const actual = valorPipeline
+              const pct = Math.min(Math.round((actual / metas.pipeline_valor) * 100), 100)
+              return (
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between text-xs">
+                    <span className="text-telkora-muted">Pipeline activo</span>
+                    <span className="font-medium text-telkora-text">
+                      {formatEUR(actual)} / {formatEUR(metas.pipeline_valor)} ({pct}%)
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-telkora-card2">
+                    <div
+                      className="h-full rounded-full bg-telkora-accent transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })()}
+            {metas.ingresos > 0 && (() => {
+              const actual = ingresosMes
+              const pct = Math.min(Math.round((actual / metas.ingresos) * 100), 100)
+              return (
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between text-xs">
+                    <span className="text-telkora-muted">Ingresos del mes</span>
+                    <span className="font-medium text-telkora-text">
+                      {formatEUR(actual)} / {formatEUR(metas.ingresos)} ({pct}%)
+                    </span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-telkora-card2">
+                    <div
+                      className="h-full rounded-full bg-telkora-accent transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        </section>
+      )}
 
       {/* Comparativa por socio — solo admin */}
       {!esSocio && metricasPorUsuario.length > 0 && (

@@ -11,18 +11,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { AlertasBadge } from './AlertasBadge'
+import { BusquedaGlobalTrigger } from '@/components/shared/BusquedaGlobal'
 import { createClient } from '@/lib/supabase/client'
 import { getInitials } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { Lead } from '@/types'
 
 const PAGE_TITLES: Record<string, string> = {
-  '/':           'Dashboard',
-  '/leads':      'Pipeline de leads',
-  '/clientes':   'Clientes',
-  '/proyectos':  'Proyectos',
-  '/finanzas':   'Finanzas',
-  '/ajustes':    'Ajustes',
+  '/':            'Dashboard',
+  '/leads':       'Pipeline de leads',
+  '/calendario':  'Calendario de Follow-ups',
+  '/clientes':    'Clientes',
+  '/proyectos':   'Proyectos',
+  '/finanzas':    'Finanzas',
+  '/ajustes':     'Ajustes',
 }
 
 interface HeaderProps {
@@ -54,6 +56,7 @@ export function Header({ userEmail, leads }: HeaderProps) {
     <header className="flex h-14 items-center justify-between border-b border-telkora-border bg-telkora-card px-6">
       <h1 className="text-sm font-semibold text-telkora-text">{title}</h1>
       <div className="flex items-center gap-2">
+        <BusquedaGlobalTrigger />
         <AlertasBadge leads={leads} />
         <DropdownMenu>
           <DropdownMenuTrigger className="rounded-full outline-none ring-telkora-accent focus:ring-2">

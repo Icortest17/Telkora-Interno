@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import {
   User, Building2, GitBranch, Bell, LogOut,
-  Save, Eye, EyeOff, Shield, Palette,
+  Save, Eye, EyeOff, Shield, Palette, Target,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -25,23 +25,31 @@ interface Configuracion {
   pipeline_probabilidades: Record<string, number> | null
 }
 
+interface MetasMes {
+  leads_cerrados: number
+  pipeline_valor: number
+  ingresos: number
+}
+
 interface AjustesClientProps {
   user: SupabaseUser | null
   config: Configuracion | null
+  metasIniciales?: MetasMes
 }
 
-type Tab = 'perfil' | 'empresa' | 'pipeline' | 'alertas' | 'apariencia' | 'sesion'
+type Tab = 'perfil' | 'empresa' | 'pipeline' | 'alertas' | 'metas' | 'apariencia' | 'sesion'
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'perfil',     label: 'Mi perfil',     icon: User },
   { id: 'empresa',    label: 'Empresa',        icon: Building2 },
   { id: 'pipeline',   label: 'Pipeline',       icon: GitBranch },
   { id: 'alertas',    label: 'Alertas',        icon: Bell },
+  { id: 'metas',      label: 'Metas del mes',  icon: Target },
   { id: 'apariencia', label: 'Apariencia',     icon: Palette },
   { id: 'sesion',     label: 'Sesión',         icon: Shield },
 ]
 
-export function AjustesClient({ user, config }: AjustesClientProps) {
+export function AjustesClient({ user, config, metasIniciales }: AjustesClientProps) {
   const supabase = createClient()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('perfil')
@@ -114,6 +122,38 @@ export function AjustesClient({ user, config }: AjustesClientProps) {
     setSavingAlertas(false)
     if (error) { toast.error('Error guardando alertas'); return }
     toast.success('Configuración de alertas guardada')
+  }
+
+  // ── Metas ────────────────────────────────────────────────
+  const mesMes = new Date()
+  const mesActual = new Date(mesMes.getFullYear(), mesMes.getMonth(), 1).toISOString().split('T')[0]
+  const [metas, setMetas] = useState<MetasMes>({
+    leads_cerrados: metasIniciales?.leads_cerrados ?? 0,
+    pipeline_valor: metasIniciales?.pipeline_valor ?? 0,
+    ingresos: metasIniciales?.ingresos ?? 0,
+  })
+  const [savingMetas, setSavingMetas] = useState(false)
+
+  async function handleGuardarMetas() {
+    if (!user?.id) return
+    setSavingMetas(true)
+    try {
+      const upserts = (Object.entries(metas) as [keyof MetasMes, number][]).map(([tipo, objetivo]) => ({
+        user_id: user.id,
+        mes: mesActual,
+        tipo,
+        objetivo,
+      }))
+      const { error } = await supabase
+        .from('metas')
+        .upsert(upserts, { onConflict: 'user_id,mes,tipo' })
+      if (error) throw error
+      toast.success('Metas del mes guardadas')
+    } catch {
+      toast.error('Error guardando metas')
+    } finally {
+      setSavingMetas(false)
+    }
   }
 
   // ── Sesión ───────────────────────────────────────────────
@@ -392,6 +432,73 @@ export function AjustesClient({ user, config }: AjustesClientProps) {
               >
                 <Save className="mr-2 size-4" />
                 {savingAlertas ? 'Guardando...' : 'Guardar configuración'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ── METAS ── */}
+        {tab === 'metas' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-base font-semibold text-telkora-text">Metas del mes</h2>
+              <p className="text-xs text-telkora-muted mt-0.5">
+                Define tus objetivos para {new Date(mesActual).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-telkora-border bg-telkora-card p-5 space-y-5">
+              <div>
+                <label className={labelCls}>Leads cerrados (ganados)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={0}
+                    value={metas.leads_cerrados}
+                    onChange={(e) => setMetas({ ...metas, leads_cerrados: Number(e.target.value) })}
+                    className="w-32 rounded-lg border border-telkora-border bg-telkora-bg px-3 py-2 text-sm text-telkora-text text-center focus:outline-none focus:border-telkora-accent"
+                  />
+                  <span className="text-sm text-telkora-muted">leads</span>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Valor de pipeline objetivo (€)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={0}
+                    step={500}
+                    value={metas.pipeline_valor}
+                    onChange={(e) => setMetas({ ...metas, pipeline_valor: Number(e.target.value) })}
+                    className="w-40 rounded-lg border border-telkora-border bg-telkora-bg px-3 py-2 text-sm text-telkora-text text-center focus:outline-none focus:border-telkora-accent"
+                  />
+                  <span className="text-sm text-telkora-muted">€</span>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Ingresos objetivo (€)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={0}
+                    step={500}
+                    value={metas.ingresos}
+                    onChange={(e) => setMetas({ ...metas, ingresos: Number(e.target.value) })}
+                    className="w-40 rounded-lg border border-telkora-border bg-telkora-bg px-3 py-2 text-sm text-telkora-text text-center focus:outline-none focus:border-telkora-accent"
+                  />
+                  <span className="text-sm text-telkora-muted">€</span>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleGuardarMetas}
+                disabled={savingMetas}
+                className="bg-telkora-accent text-telkora-bg hover:bg-telkora-accent2 text-sm font-semibold"
+              >
+                <Save className="mr-2 size-4" />
+                {savingMetas ? 'Guardando...' : 'Guardar metas'}
               </Button>
             </div>
           </div>

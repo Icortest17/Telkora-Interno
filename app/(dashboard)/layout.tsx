@@ -4,6 +4,7 @@ import { getPerfil } from '@/lib/profile'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
 import { Toaster } from '@/components/ui/sonner'
+import { BusquedaGlobal } from '@/components/shared/BusquedaGlobal'
 
 export default async function DashboardLayout({
   children,
@@ -37,6 +38,7 @@ export default async function DashboardLayout({
           },
         }}
       />
+      <BusquedaGlobal userId={perfil.userId} esAdmin={perfil.rol === 'admin'} />
     </div>
   )
 }

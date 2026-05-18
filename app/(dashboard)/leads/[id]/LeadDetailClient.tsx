@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { ArrowLeft, Phone, Mail, Globe, User, Calendar, FileText, MessageSquare, PhoneCall, Video, ArrowRightLeft, Send, Trash2 } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, Globe, User, Calendar, FileText, MessageSquare, PhoneCall, Video, ArrowRightLeft, Send, Trash2, Link2, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,6 +53,12 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
   const [isConvirtiendo, setIsConvirtiendo] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  // Adjuntos
+  const [adjuntos, setAdjuntos] = useState<{ nombre: string; url: string }[]>(initialLead.adjuntos ?? [])
+  const [nuevoAdjuntoNombre, setNuevoAdjuntoNombre] = useState('')
+  const [nuevoAdjuntoUrl, setNuevoAdjuntoUrl] = useState('')
+  const [isSavingAdjunto, setIsSavingAdjunto] = useState(false)
 
   // Debounce notas
   useEffect(() => {
@@ -182,6 +188,43 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
       toast.error('Error convirtiendo a cliente')
     } finally {
       setIsConvirtiendo(false)
+    }
+  }
+
+  async function handleAnadirAdjunto() {
+    if (!nuevoAdjuntoUrl.trim()) return
+    const nombre = nuevoAdjuntoNombre.trim() || nuevoAdjuntoUrl
+    const nuevosAdjuntos = [...adjuntos, { nombre, url: nuevoAdjuntoUrl.trim() }]
+    setIsSavingAdjunto(true)
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ adjuntos: nuevosAdjuntos })
+        .eq('id', lead.id)
+      if (error) throw error
+      setAdjuntos(nuevosAdjuntos)
+      setNuevoAdjuntoNombre('')
+      setNuevoAdjuntoUrl('')
+      toast.success('Adjunto añadido')
+    } catch {
+      toast.error('Error añadiendo adjunto')
+    } finally {
+      setIsSavingAdjunto(false)
+    }
+  }
+
+  async function handleEliminarAdjunto(index: number) {
+    const nuevosAdjuntos = adjuntos.filter((_, i) => i !== index)
+    try {
+      const { error } = await supabase
+        .from('leads')
+        .update({ adjuntos: nuevosAdjuntos })
+        .eq('id', lead.id)
+      if (error) throw error
+      setAdjuntos(nuevosAdjuntos)
+      toast.success('Adjunto eliminado')
+    } catch {
+      toast.error('Error eliminando adjunto')
     }
   }
 
@@ -415,6 +458,70 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
               className="border-telkora-border bg-telkora-card2 text-sm text-telkora-text placeholder:text-telkora-muted/50 focus-visible:ring-telkora-accent"
             />
             <p className="mt-1.5 text-[10px] text-telkora-muted">Guardado automáticamente</p>
+          </section>
+
+          {/* Adjuntos */}
+          <section className="rounded-xl border border-telkora-border bg-telkora-card p-5">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-telkora-muted">Adjuntos</h2>
+
+            {/* Añadir enlace */}
+            <div className="mb-3 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  value={nuevoAdjuntoNombre}
+                  onChange={(e) => setNuevoAdjuntoNombre(e.target.value)}
+                  placeholder="Nombre del archivo"
+                  className="h-8 border-telkora-border bg-telkora-card2 text-xs text-telkora-text"
+                />
+                <Input
+                  value={nuevoAdjuntoUrl}
+                  onChange={(e) => setNuevoAdjuntoUrl(e.target.value)}
+                  placeholder="URL (Google Drive, Dropbox…)"
+                  className="h-8 border-telkora-border bg-telkora-card2 text-xs text-telkora-text"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAnadirAdjunto() }}
+                />
+              </div>
+              <Button
+                size="sm"
+                onClick={handleAnadirAdjunto}
+                disabled={isSavingAdjunto || !nuevoAdjuntoUrl.trim()}
+                className="h-8 bg-telkora-accent text-xs text-telkora-bg hover:bg-telkora-accent2"
+              >
+                <Plus className="mr-1.5 size-3.5" />
+                {isSavingAdjunto ? 'Añadiendo…' : 'Añadir enlace'}
+              </Button>
+            </div>
+
+            {/* Lista de adjuntos */}
+            {adjuntos.length === 0 ? (
+              <p className="py-3 text-center text-xs text-telkora-muted">Sin adjuntos</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {adjuntos.map((adj, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-2 rounded-lg border border-telkora-border bg-telkora-card2 px-3 py-2"
+                  >
+                    <Link2 className="size-3.5 flex-shrink-0 text-telkora-muted" />
+                    <a
+                      href={adj.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 truncate text-xs text-telkora-accent hover:underline"
+                    >
+                      {adj.nombre}
+                    </a>
+                    <button
+                      onClick={() => handleEliminarAdjunto(i)}
+                      className="flex-shrink-0 text-telkora-muted hover:text-telkora-danger transition-colors"
+                      title="Eliminar adjunto"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </div>
 
