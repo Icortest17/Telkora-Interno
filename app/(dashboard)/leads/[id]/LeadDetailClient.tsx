@@ -41,6 +41,27 @@ interface Props {
   usuarios: Usuario[]
 }
 
+function EtiquetaInput({ onAdd }: { onAdd: (tag: string) => void }) {
+  const [val, setVal] = useState('')
+  return (
+    <div className="flex gap-1.5">
+      <input
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (val.trim()) { onAdd(val.trim()); setVal('') } } }}
+        placeholder="Nueva etiqueta…"
+        className="h-7 flex-1 rounded border border-telkora-border bg-telkora-card2 px-2 text-xs text-telkora-text placeholder:text-telkora-muted focus:outline-none focus:ring-1 focus:ring-telkora-accent"
+      />
+      <button
+        onClick={() => { if (val.trim()) { onAdd(val.trim()); setVal('') } }}
+        className="h-7 rounded bg-telkora-card2 px-2.5 text-xs text-telkora-muted hover:bg-telkora-border hover:text-telkora-text"
+      >
+        + Añadir
+      </button>
+    </div>
+  )
+}
+
 export function LeadDetailClient({ initialLead, initialActividades, currentUserId, esAdmin, usuarios }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -84,11 +105,18 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
           .update({ [field]: value })
           .eq('id', lead.id)
         if (error) throw error
+        // Auto-recalculate valor_ponderado locally (mirrors DB trigger)
+        if (field === 'valor_estimado' || field === 'probabilidad') {
+          const newValorEstimado = field === 'valor_estimado' ? (value as number) : lead.valor_estimado
+          const newProbabilidad = field === 'probabilidad' ? (value as number) : lead.probabilidad
+          const newPonderado = Math.round(newValorEstimado * newProbabilidad / 100)
+          setLead((prev) => ({ ...prev, valor_ponderado: newPonderado }))
+        }
       } catch {
         toast.error('Error guardando')
       }
     },
-    [lead.id, supabase]
+    [lead.id, lead.valor_estimado, lead.probabilidad, supabase]
   )
 
   const handleEstadoChange = useCallback(
@@ -522,6 +550,29 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
                 ))}
               </ul>
             )}
+          </section>
+
+          {/* Etiquetas */}
+          <section className="rounded-xl border border-telkora-border bg-telkora-card p-5">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-telkora-muted">Etiquetas</h2>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {(lead.etiquetas ?? []).map((tag) => (
+                <span key={tag} className="flex items-center gap-1 rounded-full bg-telkora-card2 px-2.5 py-0.5 text-xs text-telkora-text">
+                  {tag}
+                  <button
+                    onClick={() => updateField('etiquetas', (lead.etiquetas ?? []).filter((t) => t !== tag))}
+                    className="text-telkora-muted hover:text-telkora-danger"
+                  >×</button>
+                </span>
+              ))}
+              {(lead.etiquetas ?? []).length === 0 && (
+                <span className="text-xs text-telkora-muted">Sin etiquetas</span>
+              )}
+            </div>
+            <EtiquetaInput onAdd={(tag) => {
+              const current = lead.etiquetas ?? []
+              if (!current.includes(tag)) updateField('etiquetas', [...current, tag])
+            }} />
           </section>
         </div>
 

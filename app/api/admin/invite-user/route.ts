@@ -5,6 +5,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
+// In-memory rate limit: max 10 invites per hour per admin
+const inviteRateLimit = new Map<string, { count: number; resetAt: number }>()
+
 export async function POST(request: Request): Promise<NextResponse> {
   // 1. Verify caller is authenticated AND admin
   const cookieStore = await cookies()
@@ -34,6 +37,17 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (perfil?.rol !== 'admin') {
     return NextResponse.json({ error: 'Solo admins pueden invitar usuarios' }, { status: 403 })
   }
+
+  // Rate limit: max 10 invites per hour per admin
+  const now = Date.now()
+  const limit = inviteRateLimit.get(user.id)
+  if (limit && limit.resetAt > now && limit.count >= 10) {
+    return NextResponse.json({ error: 'Demasiadas invitaciones. Intenta en 1 hora.' }, { status: 429 })
+  }
+  inviteRateLimit.set(user.id, {
+    count: (limit && limit.resetAt > now ? limit.count : 0) + 1,
+    resetAt: limit && limit.resetAt > now ? limit.resetAt : now + 3600000,
+  })
 
   // 2. Parse body
   let email: string, nombre: string

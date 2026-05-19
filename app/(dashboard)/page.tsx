@@ -3,7 +3,7 @@ import { getPerfil, getUsuarios } from '@/lib/profile'
 import Link from 'next/link'
 import { formatEUR, formatDate, isFollowupUrgente } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { AlertTriangle, TrendingUp, Users, BarChart2, FolderKanban, Target } from 'lucide-react'
+import { AlertTriangle, TrendingUp, Users, BarChart2, FolderKanban, Target, Kanban } from 'lucide-react'
 import type { Lead, EstadoLead } from '@/types'
 import { ESTADOS_LEAD, ESTADOS_PIPELINE } from '@/lib/constants'
 import { differenceInDays } from 'date-fns'
@@ -170,6 +170,26 @@ export default async function DashboardPage() {
         ))}
       </div>
 
+      {leads.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-telkora-border bg-telkora-card p-12 text-center">
+          <div className="rounded-full bg-telkora-card2 p-4">
+            <Kanban className="size-8 text-telkora-accent" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-telkora-text">Bienvenido a Telkora</h2>
+            <p className="mt-1 text-sm text-telkora-muted">
+              Aún no tienes leads. Empieza creando tu primer prospecto o importa un CSV.
+            </p>
+          </div>
+          <Link
+            href="/leads"
+            className="rounded-lg bg-telkora-accent px-4 py-2 text-sm font-medium text-telkora-bg hover:opacity-90"
+          >
+            Ir al Pipeline →
+          </Link>
+        </div>
+      ) : (
+      <>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Leads urgentes */}
         <section className="rounded-xl border border-telkora-border bg-telkora-card p-5">
@@ -438,6 +458,8 @@ export default async function DashboardPage() {
             </table>
           </div>
         </section>
+      )}
+      </>
       )}
     </div>
   )

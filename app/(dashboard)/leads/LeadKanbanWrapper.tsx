@@ -6,6 +6,7 @@ import { LeadKanban } from '@/components/leads/LeadKanban'
 import { toast } from 'sonner'
 import type { Lead, EstadoLead } from '@/types'
 import type { Usuario } from '@/lib/profile'
+import { ESTADOS_LEAD } from '@/lib/constants'
 
 interface Props {
   initialLeads: Lead[]
@@ -30,7 +31,27 @@ export function LeadKanbanWrapper({ initialLeads, currentUserId, usuarios = [], 
     async (leadId: string, nuevoEstado: EstadoLead, userId: string) => {
       const lead = leads.find((l) => l.id === leadId)
       if (!lead) return
+      // Optimistic update
       setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, estado: nuevoEstado } : l))
+
+      // Undo toast for 5 seconds
+      let undone = false
+      const toastId = toast(`Estado cambiado a "${ESTADOS_LEAD[nuevoEstado].label}"`, {
+        action: {
+          label: 'Deshacer',
+          onClick: () => {
+            undone = true
+            setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, estado: lead.estado } : l))
+          },
+        },
+        duration: 5000,
+      })
+
+      // Wait 5s, then persist if not undone
+      await new Promise<void>((resolve) => setTimeout(resolve, 5000))
+      toast.dismiss(toastId)
+      if (undone) return
+
       try {
         const { error } = await supabase.from('leads').update({ estado: nuevoEstado }).eq('id', leadId)
         if (error) throw error
@@ -86,48 +107,61 @@ export function LeadKanbanWrapper({ initialLeads, currentUserId, usuarios = [], 
             }
           }
         }
-
-        toast.success(`Movido a ${nuevoEstado.replace('_', ' ')}`)
       } catch {
+        // Revert optimistic update on error
         setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, estado: lead.estado } : l))
-        toast.error('Error actualizando estado')
+        toast.error('Error al actualizar el estado. Comprueba tu conexión.')
       }
     },
     [leads, supabase]
   )
 
   const updateFollowup = useCallback(async (leadId: string, fecha: string | null) => {
+    const prevLead = leads.find((l) => l.id === leadId)
     setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, proximo_followup: fecha } : l))
     try {
       const { error } = await supabase.from('leads').update({ proximo_followup: fecha }).eq('id', leadId)
       if (error) throw error
       toast.success('Follow-up actualizado')
     } catch {
-      toast.error('Error actualizando follow-up')
+      if (prevLead) {
+        setLeads((prev) => prev.map((l) => l.id === leadId ? { ...l, proximo_followup: prevLead.proximo_followup } : l))
+      }
+      toast.error('Error actualizando follow-up. Comprueba tu conexión.')
     }
-  }, [supabase])
+  }, [leads, supabase])
 
   const bulkUpdateEstado = useCallback(async (ids: string[], nuevoEstado: EstadoLead) => {
+    const prevEstados = leads.filter((l) => ids.includes(l.id)).map((l) => ({ id: l.id, estado: l.estado }))
     setLeads((prev) => prev.map((l) => ids.includes(l.id) ? { ...l, estado: nuevoEstado } : l))
     try {
       const { error } = await supabase.from('leads').update({ estado: nuevoEstado }).in('id', ids)
       if (error) throw error
       toast.success(`${ids.length} lead${ids.length !== 1 ? 's' : ''} actualizados`)
     } catch {
-      toast.error('Error en actualización masiva')
+      setLeads((prev) => prev.map((l) => {
+        const prev_ = prevEstados.find((p) => p.id === l.id)
+        return prev_ ? { ...l, estado: prev_.estado } : l
+      }))
+      toast.error('Error en actualización masiva. Comprueba tu conexión.')
     }
-  }, [supabase])
+  }, [leads, supabase])
 
   const bulkAssign = useCallback(async (ids: string[], userId: string) => {
+    const prevOwners = leads.filter((l) => ids.includes(l.id)).map((l) => ({ id: l.id, owner_id: l.owner_id }))
     setLeads((prev) => prev.map((l) => ids.includes(l.id) ? { ...l, owner_id: userId } : l))
     try {
       const { error } = await supabase.from('leads').update({ owner_id: userId }).in('id', ids)
       if (error) throw error
       toast.success(`${ids.length} lead${ids.length !== 1 ? 's' : ''} reasignados`)
     } catch {
-      toast.error('Error en reasignación masiva')
+      setLeads((prev) => prev.map((l) => {
+        const prev_ = prevOwners.find((p) => p.id === l.id)
+        return prev_ ? { ...l, owner_id: prev_.owner_id } : l
+      }))
+      toast.error('Error en reasignación masiva. Comprueba tu conexión.')
     }
-  }, [supabase])
+  }, [leads, supabase])
 
   const createLead = useCallback(
     async (data: Partial<Lead>) => {

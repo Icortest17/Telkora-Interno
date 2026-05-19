@@ -55,7 +55,7 @@ export function Sidebar() {
               className={cn(
                 'flex items-center justify-center gap-3 rounded-md px-2 py-2 text-sm transition-colors lg:justify-start lg:px-3',
                 isActive
-                  ? 'border-l-2 border-telkora-accent bg-telkora-card2 text-telkora-text'
+                  ? 'bg-telkora-accent/10 text-telkora-accent lg:border-l-2 lg:border-telkora-accent lg:bg-telkora-card2 lg:text-telkora-text'
                   : 'text-telkora-muted hover:bg-telkora-card2 hover:text-telkora-text',
                 soon && 'cursor-default opacity-50'
               )}
