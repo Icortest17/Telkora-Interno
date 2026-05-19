@@ -12,39 +12,31 @@ import { differenceInDays, addDays, formatISO } from 'date-fns'
 export default async function DashboardPage() {
   const supabase = await createClient()
   const perfil = await getPerfil()
-  const esSocio = perfil?.rol === 'socio'
   const userId = perfil?.userId ?? ''
 
-  let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false })
-  if (esSocio) leadsQuery = leadsQuery.eq('owner_id', userId) as typeof leadsQuery
+  const leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false })
 
-  let proyQuery = supabase.from('proyectos').select('id, estado').not('estado', 'in', '("entregado","cancelado","pausado")')
-  if (esSocio) proyQuery = proyQuery.eq('owner_id', userId) as typeof proyQuery
+  const proyQuery = supabase.from('proyectos').select('id, estado').not('estado', 'in', '("entregado","cancelado","pausado")')
 
   const today = formatISO(new Date(), { representation: 'date' })
   const todayPlus7 = formatISO(addDays(new Date(), 7), { representation: 'date' })
 
-  let entregasQuery = supabase
+  const entregasQuery = supabase
     .from('proyectos')
     .select('id')
     .gte('fecha_entrega_estimada', today)
     .lte('fecha_entrega_estimada', todayPlus7)
     .not('estado', 'in', '("entregado","cancelado")')
-  if (esSocio) entregasQuery = entregasQuery.eq('owner_id', userId) as typeof entregasQuery
 
-  let pendienteCobrarQuery = supabase
+  const pendienteCobrarQuery = supabase
     .from('transacciones')
     .select('importe')
     .in('estado', ['pendiente', 'enviada'])
     .eq('tipo', 'ingreso')
-  if (esSocio) pendienteCobrarQuery = pendienteCobrarQuery.eq('owner_id', userId) as typeof pendienteCobrarQuery
 
   const [leadsRes, clientesRes, proyectosRes, entregasRes, pendienteCobrarRes] = await Promise.all([
     leadsQuery,
-    // MRR solo visible para admin
-    esSocio
-      ? Promise.resolve({ data: [] })
-      : supabase.from('clientes').select('mrr, estado').eq('estado', 'activo'),
+    supabase.from('clientes').select('mrr, estado').eq('estado', 'activo'),
     proyQuery,
     entregasQuery,
     pendienteCobrarQuery,
@@ -70,8 +62,7 @@ export default async function DashboardPage() {
   // Tendencias vs mes anterior
   const prevMesInicio = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().split('T')[0]
   const prevMesFin = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toISOString().split('T')[0]
-  let prevLeadsQuery = supabase.from('leads').select('estado, valor_estimado, valor_ponderado').gte('created_at', prevMesInicio).lte('created_at', prevMesFin)
-  if (esSocio) prevLeadsQuery = prevLeadsQuery.eq('owner_id', userId) as typeof prevLeadsQuery
+  const prevLeadsQuery = supabase.from('leads').select('estado, valor_estimado, valor_ponderado').gte('created_at', prevMesInicio).lte('created_at', prevMesFin)
   const { data: prevLeadsData } = await prevLeadsQuery
   const prevLeads = prevLeadsData ?? []
   const prevLeadsActivos = prevLeads.filter(l => !['cerrado_ganado','cerrado_perdido','pausado'].includes(l.estado)).length
@@ -119,14 +110,12 @@ export default async function DashboardPage() {
   }
 
   // Ingresos del mes actual
-  let ingresosQuery = supabase
+  const { data: ingresosData } = await supabase
     .from('transacciones')
     .select('importe, estado, tipo')
     .eq('tipo', 'ingreso')
     .eq('estado', 'cobrada')
     .gte('fecha_cobro', mesActual)
-  if (esSocio) ingresosQuery = ingresosQuery.eq('owner_id', userId) as typeof ingresosQuery
-  const { data: ingresosData } = await ingresosQuery
   const ingresosMes = (ingresosData ?? []).reduce((s, t) => s + t.importe, 0)
 
   // Métricas de conversión
@@ -154,11 +143,11 @@ export default async function DashboardPage() {
   })
   const maxEmbudoCount = Math.max(...embudoStats.map((s) => s.count), 1)
 
-  // Obtener lista de usuarios para comparativa admin
-  const usuarios = esSocio ? [] : await getUsuarios()
+  // Obtener lista de usuarios para comparativa
+  const usuarios = await getUsuarios()
 
-  // Métricas por usuario (solo admin)
-  const metricasPorUsuario = esSocio ? [] : await Promise.all(
+  // Métricas por usuario
+  const metricasPorUsuario = await Promise.all(
     usuarios.map(async (u) => {
       const [leadsRes, proyRes, txRes] = await Promise.all([
         supabase.from('leads').select('estado, valor_estimado, valor_ponderado').eq('owner_id', u.userId),
@@ -188,16 +177,16 @@ export default async function DashboardPage() {
 
   const METRICAS: Metrica[] = [
     {
-      label: 'Mis leads activos',
+      label: 'Leads activos',
       value: leadsActivos,
       icon: Users,
       accent: false,
       delta: leadsActivos - prevLeadsActivos,
       deltaLabel: 'vs mes ant.',
     },
-    ...(esSocio ? [] : [{ label: 'MRR actual', value: formatEUR(mrrActual), icon: TrendingUp, accent: true, delta: 0, deltaLabel: '' } as Metrica]),
+    { label: 'MRR actual', value: formatEUR(mrrActual), icon: TrendingUp, accent: true, delta: 0, deltaLabel: '' },
     {
-      label: 'Mi pipeline',
+      label: 'Pipeline',
       value: formatEUR(valorPipeline),
       icon: BarChart2,
       accent: false,
@@ -205,7 +194,7 @@ export default async function DashboardPage() {
       deltaLabel: 'vs mes ant.',
       deltaEUR: true,
     },
-    { label: esSocio ? 'Mis proyectos' : 'Proyectos activos', value: proyectosActivos, icon: FolderKanban, accent: false, delta: 0, deltaLabel: '' },
+    { label: 'Proyectos activos', value: proyectosActivos, icon: FolderKanban, accent: false, delta: 0, deltaLabel: '' },
   ]
 
   return (
@@ -506,8 +495,8 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {/* Comparativa por socio — solo admin */}
-      {!esSocio && metricasPorUsuario.length > 0 && (
+      {/* Comparativa por usuario */}
+      {metricasPorUsuario.length > 0 && (
         <section className="rounded-xl border border-telkora-border bg-telkora-card p-5">
           <h2 className="mb-4 text-sm font-semibold text-telkora-text">Comparativa por socio</h2>
           <div className="overflow-x-auto">

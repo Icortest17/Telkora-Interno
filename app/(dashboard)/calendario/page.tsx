@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { getPerfil } from '@/lib/profile'
 import { CalendarioClient } from '@/components/calendario/CalendarioClient'
 import { isToday, isThisWeek, isThisMonth, isPast, startOfDay } from 'date-fns'
 import type { Lead } from '@/types'
@@ -8,22 +7,12 @@ const ESTADOS_EXCLUIDOS = ['cerrado_ganado', 'cerrado_perdido', 'pausado']
 
 export default async function CalendarioPage() {
   const supabase = await createClient()
-  const perfil = await getPerfil()
-  const esSocio = perfil?.rol === 'socio'
-  const userId = perfil?.userId ?? ''
-
-  let query = supabase
+  const { data } = await supabase
     .from('leads')
     .select('*')
     .not('proximo_followup', 'is', null)
     .not('estado', 'in', `(${ESTADOS_EXCLUIDOS.map((e) => `"${e}"`).join(',')})`)
     .order('proximo_followup', { ascending: true })
-
-  if (esSocio) {
-    query = query.eq('owner_id', userId) as typeof query
-  }
-
-  const { data } = await query
   const leads: Lead[] = data ?? []
 
   const hoy = startOfDay(new Date())

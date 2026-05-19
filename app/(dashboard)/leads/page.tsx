@@ -7,12 +7,11 @@ export default async function LeadsPage() {
   const perfil = await getPerfil()
   const esAdmin = perfil?.rol === 'admin'
 
-  let query = supabase.from('leads').select('*').order('created_at', { ascending: false })
-  if (!esAdmin) query = query.eq('owner_id', perfil?.userId) as typeof query
+  const query = supabase.from('leads').select('*').order('created_at', { ascending: false })
 
   const [leadsRes, usuarios] = await Promise.all([
     query,
-    esAdmin ? getUsuarios() : Promise.resolve([]),
+    getUsuarios(),
   ])
 
   return (

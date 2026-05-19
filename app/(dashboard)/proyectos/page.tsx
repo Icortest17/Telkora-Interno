@@ -8,13 +8,12 @@ export default async function ProyectosPage() {
   const perfil = await getPerfil()
   const esAdmin = perfil?.rol === 'admin'
 
-  let proyQuery = supabase.from('proyectos').select('*').order('created_at', { ascending: false })
-  if (!esAdmin) proyQuery = proyQuery.eq('owner_id', perfil?.userId) as typeof proyQuery
+  const proyQuery = supabase.from('proyectos').select('*').order('created_at', { ascending: false })
 
   const [proyectosRes, clientesRes, usuarios] = await Promise.all([
     proyQuery,
     supabase.from('clientes').select('id, empresa').eq('estado', 'activo').order('empresa'),
-    esAdmin ? getUsuarios() : Promise.resolve([]),
+    getUsuarios(),
   ])
 
   const proyectos: Proyecto[] = proyectosRes.data ?? []
