@@ -185,7 +185,8 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
       if (error) throw error
       toast.success('Lead eliminado')
       router.push('/leads')
-    } catch {
+    } catch (err) {
+      console.error('[eliminar lead]', err)
       toast.error('Error eliminando lead')
       setIsDeleting(false)
     }
@@ -218,7 +219,8 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
       if (error) throw error
       toast.success('Lead duplicado')
       router.push(`/leads/${data.id}`)
-    } catch {
+    } catch (err) {
+      console.error('[duplicar lead]', err)
       toast.error('Error duplicando lead')
     } finally {
       setIsDuplicating(false)
@@ -247,8 +249,10 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
       if (error) throw error
       toast.success('Lead convertido a cliente')
       router.push(`/clientes/${cliente.id}`)
-    } catch {
-      toast.error('Error convirtiendo a cliente')
+    } catch (err) {
+      console.error('[convertir cliente]', err)
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      toast.error(`Error convirtiendo a cliente: ${msg}`)
     } finally {
       setIsConvirtiendo(false)
     }

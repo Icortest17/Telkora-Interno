@@ -24,7 +24,6 @@ interface NuevoClienteForm {
   telefono: string
   sector: string
   estado: 'activo' | 'pausado' | 'churned' | 'upsell'
-  tier: 'gold' | 'silver' | 'bronze'
   mrr: number
 }
 
@@ -35,7 +34,6 @@ const FORM_INITIAL: NuevoClienteForm = {
   telefono: '',
   sector: '',
   estado: 'activo',
-  tier: 'bronze',
   mrr: 0,
 }
 
@@ -80,9 +78,8 @@ export function ClientesClient({ initialClientes }: Props) {
           telefono: form.telefono.trim() || null,
           sector: form.sector || null,
           estado: form.estado,
-          tier: form.tier,
           mrr: form.mrr,
-          pais: 'ES',
+          pais: 'España',
         })
         .select()
         .single()
@@ -91,8 +88,10 @@ export function ClientesClient({ initialClientes }: Props) {
       toast.success(`Cliente "${data.empresa}" creado`)
       setModalOpen(false)
       setForm(FORM_INITIAL)
-    } catch {
-      toast.error('Error creando cliente')
+    } catch (err) {
+      console.error('[crear cliente]', err)
+      const msg = err instanceof Error ? err.message : 'Error desconocido'
+      toast.error(`Error creando cliente: ${msg}`)
     } finally {
       setSaving(false)
     }
@@ -250,15 +249,9 @@ export function ClientesClient({ initialClientes }: Props) {
                 </div>
                 <div>
                   <label className={labelCls}>Tier</label>
-                  <select
-                    value={form.tier}
-                    onChange={(e) => setForm({ ...form, tier: e.target.value as NuevoClienteForm['tier'] })}
-                    className={inputCls}
-                  >
-                    <option value="bronze">Bronze</option>
-                    <option value="silver">Silver</option>
-                    <option value="gold">Gold</option>
-                  </select>
+                  <div className={`${inputCls} bg-telkora-card2/50 text-telkora-muted cursor-default`}>
+                    Auto (según MRR)
+                  </div>
                 </div>
               </div>
 

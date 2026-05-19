@@ -20,8 +20,8 @@ interface ClienteCardProps {
 }
 
 export function ClienteCard({ cliente }: ClienteCardProps) {
-  const tier = TIER_CONFIG[cliente.tier]
-  const estado = ESTADO_CONFIG[cliente.estado]
+  const tier = TIER_CONFIG[cliente.tier ?? 'bronze'] ?? TIER_CONFIG.bronze
+  const estado = ESTADO_CONFIG[cliente.estado ?? 'activo'] ?? ESTADO_CONFIG.activo
 
   return (
     <Link href={`/clientes/${cliente.id}`}>

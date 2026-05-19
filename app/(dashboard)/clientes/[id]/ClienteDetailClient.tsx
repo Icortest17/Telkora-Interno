@@ -62,13 +62,14 @@ export function ClienteDetailClient({ initialCliente, proyectos, esAdmin }: Prop
       if (error) throw error
       toast.success('Cliente eliminado')
       router.push('/clientes')
-    } catch {
+    } catch (err) {
+      console.error('[eliminar cliente]', err)
       toast.error('Error eliminando cliente')
       setIsDeleting(false)
     }
   }
 
-  const tier = TIER_CONFIG[cliente.tier]
+  const tier = TIER_CONFIG[cliente.tier ?? 'bronze'] ?? TIER_CONFIG.bronze
   const meses = mesesComoCliente(cliente.fecha_inicio_relacion)
 
   return (
