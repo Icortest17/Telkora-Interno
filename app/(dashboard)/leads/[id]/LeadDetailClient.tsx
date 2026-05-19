@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { ArrowLeft, Phone, Mail, Globe, User, Calendar, FileText, MessageSquare, PhoneCall, Video, ArrowRightLeft, Send, Trash2, Link2, Plus, X } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, Globe, User, Calendar, FileText, MessageSquare, PhoneCall, Video, ArrowRightLeft, Send, Trash2, Link2, Plus, X, MessageCircle, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -73,6 +73,7 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
   const [isSavingActividad, setIsSavingActividad] = useState(false)
   const [isConvirtiendo, setIsConvirtiendo] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isDuplicating, setIsDuplicating] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Adjuntos
@@ -190,6 +191,40 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
     }
   }
 
+  async function handleDuplicarLead() {
+    setIsDuplicating(true)
+    try {
+      const { data, error } = await supabase.from('leads').insert({
+        empresa: `${lead.empresa} (copia)`,
+        contacto: lead.contacto,
+        email: lead.email,
+        telefono: lead.telefono,
+        website: lead.website,
+        sector: lead.sector,
+        pais: lead.pais,
+        estado: 'prospecto',
+        valor_estimado: lead.valor_estimado,
+        probabilidad: lead.probabilidad,
+        pack_interes: lead.pack_interes,
+        fuente: lead.fuente,
+        fase_proceso: lead.fase_proceso,
+        prioridad_score: lead.prioridad_score,
+        owner_id: lead.owner_id,
+        notas: lead.notas,
+        etiquetas: lead.etiquetas,
+        has_website: lead.has_website,
+        fuente_apify: false,
+      }).select().single()
+      if (error) throw error
+      toast.success('Lead duplicado')
+      router.push(`/leads/${data.id}`)
+    } catch {
+      toast.error('Error duplicando lead')
+    } finally {
+      setIsDuplicating(false)
+    }
+  }
+
   async function handleConvertirCliente() {
     setIsConvirtiendo(true)
     try {
@@ -283,6 +318,16 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
             {isConvirtiendo ? 'Convirtiendo…' : 'Convertir a cliente'}
           </Button>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDuplicarLead}
+          disabled={isDuplicating}
+          className="border-telkora-border text-telkora-muted hover:bg-telkora-card2 hover:text-telkora-text"
+        >
+          <Copy className="mr-1.5 size-4" />
+          {isDuplicating ? 'Duplicando…' : 'Duplicar'}
+        </Button>
         {(esAdmin || lead.owner_id === currentUserId) && (
           <Button
             variant="ghost"
@@ -318,11 +363,42 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
                   <Label className="flex items-center gap-1 text-[11px] text-telkora-muted">
                     <Icon className="size-3" />{label}
                   </Label>
-                  <Input
-                    value={(lead[field] as string) ?? ''}
-                    onChange={(e) => updateField(field, e.target.value)}
-                    className="h-8 border-telkora-border bg-telkora-card2 text-xs text-telkora-text focus-visible:ring-telkora-accent"
-                  />
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={(lead[field] as string) ?? ''}
+                      onChange={(e) => updateField(field, e.target.value)}
+                      className="h-8 flex-1 border-telkora-border bg-telkora-card2 text-xs text-telkora-text focus-visible:ring-telkora-accent"
+                    />
+                    {field === 'telefono' && lead.telefono && (
+                      <>
+                        <a
+                          href={`tel:${lead.telefono}`}
+                          className="inline-flex size-7 items-center justify-center rounded border border-telkora-border text-telkora-muted hover:border-telkora-accent hover:text-telkora-accent transition-colors"
+                          title="Llamar"
+                        >
+                          <Phone className="size-3.5" />
+                        </a>
+                        <a
+                          href={`https://wa.me/${lead.telefono.replace(/[^0-9]/g, '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex size-7 items-center justify-center rounded border border-telkora-border text-telkora-muted hover:border-telkora-accent hover:text-telkora-accent transition-colors"
+                          title="WhatsApp"
+                        >
+                          <MessageCircle className="size-3.5" />
+                        </a>
+                      </>
+                    )}
+                    {field === 'email' && lead.email && (
+                      <a
+                        href={`mailto:${lead.email}`}
+                        className="inline-flex size-7 items-center justify-center rounded border border-telkora-border text-telkora-muted hover:border-telkora-accent hover:text-telkora-accent transition-colors"
+                        title="Enviar email"
+                      >
+                        <Mail className="size-3.5" />
+                      </a>
+                    )}
+                  </div>
                 </div>
               ))}
               <div className="space-y-1">

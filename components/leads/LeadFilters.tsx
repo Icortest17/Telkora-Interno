@@ -91,6 +91,8 @@ export interface LeadFiltersProps {
   onImportar: () => void
   vista: 'kanban' | 'lista'
   onVistaChange: (v: 'kanban' | 'lista') => void
+  compact?: boolean
+  onCompactChange?: (v: boolean) => void
 }
 
 export function LeadFilters({
@@ -105,6 +107,7 @@ export function LeadFilters({
   soloUrgentes, onSoloUrgentesChange,
   onNuevoLead, onImportar,
   vista, onVistaChange,
+  compact, onCompactChange,
 }: LeadFiltersProps) {
   const [showMore, setShowMore] = useState(false)
   const [showEstadoDropdown, setShowEstadoDropdown] = useState(false)
@@ -290,6 +293,19 @@ export function LeadFilters({
             <List className="size-3.5" />
           </button>
         </div>
+
+        {/* Compact toggle */}
+        {vista === 'kanban' && onCompactChange && (
+          <button
+            onClick={() => onCompactChange(!compact)}
+            title={compact ? 'Vista normal' : 'Vista compacta'}
+            className={`flex size-8 items-center justify-center rounded border text-xs transition-colors ${
+              compact ? 'border-telkora-accent bg-telkora-accent/10 text-telkora-accent' : 'border-telkora-border text-telkora-muted hover:border-telkora-accent hover:text-telkora-accent'
+            }`}
+          >
+            &#8861;
+          </button>
+        )}
 
         {/* More filters button */}
         <button

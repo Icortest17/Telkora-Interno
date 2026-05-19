@@ -1,3 +1,4 @@
+import type { ElementType } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { getPerfil, getUsuarios } from '@/lib/profile'
 import Link from 'next/link'
@@ -43,6 +44,16 @@ export default async function DashboardPage() {
   const valorPipeline = leads
     .filter((l) => (ESTADOS_PIPELINE as string[]).includes(l.estado))
     .reduce((s, l) => s + (l.valor_ponderado ?? 0), 0)
+
+  // Tendencias vs mes anterior
+  const prevMesInicio = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().split('T')[0]
+  const prevMesFin = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toISOString().split('T')[0]
+  let prevLeadsQuery = supabase.from('leads').select('estado, valor_estimado, valor_ponderado').gte('created_at', prevMesInicio).lte('created_at', prevMesFin)
+  if (esSocio) prevLeadsQuery = prevLeadsQuery.eq('owner_id', userId) as typeof prevLeadsQuery
+  const { data: prevLeadsData } = await prevLeadsQuery
+  const prevLeads = prevLeadsData ?? []
+  const prevLeadsActivos = prevLeads.filter(l => !['cerrado_ganado','cerrado_perdido','pausado'].includes(l.estado)).length
+  const prevValorPipeline = prevLeads.filter(l => (ESTADOS_PIPELINE as string[]).includes(l.estado)).reduce((s, l) => s + (l.valor_ponderado ?? 0), 0)
 
   // Leads urgentes
   const urgentes = leads
@@ -143,29 +154,61 @@ export default async function DashboardPage() {
     })
   )
 
-  const METRICAS = [
-    { label: 'Mis leads activos', value: leadsActivos, icon: Users, accent: false },
-    ...(esSocio ? [] : [{ label: 'MRR actual', value: formatEUR(mrrActual), icon: TrendingUp, accent: true }]),
-    { label: 'Mi pipeline', value: formatEUR(valorPipeline), icon: BarChart2, accent: false },
-    { label: esSocio ? 'Mis proyectos' : 'Proyectos activos', value: proyectosActivos, icon: FolderKanban, accent: false },
+  interface Metrica {
+    label: string
+    value: string | number
+    icon: ElementType
+    accent: boolean
+    delta?: number
+    deltaLabel?: string
+    deltaEUR?: boolean
+  }
+
+  const METRICAS: Metrica[] = [
+    {
+      label: 'Mis leads activos',
+      value: leadsActivos,
+      icon: Users,
+      accent: false,
+      delta: leadsActivos - prevLeadsActivos,
+      deltaLabel: 'vs mes ant.',
+    },
+    ...(esSocio ? [] : [{ label: 'MRR actual', value: formatEUR(mrrActual), icon: TrendingUp, accent: true, delta: 0, deltaLabel: '' } as Metrica]),
+    {
+      label: 'Mi pipeline',
+      value: formatEUR(valorPipeline),
+      icon: BarChart2,
+      accent: false,
+      delta: valorPipeline - prevValorPipeline,
+      deltaLabel: 'vs mes ant.',
+      deltaEUR: true,
+    },
+    { label: esSocio ? 'Mis proyectos' : 'Proyectos activos', value: proyectosActivos, icon: FolderKanban, accent: false, delta: 0, deltaLabel: '' },
   ]
 
   return (
     <div className="space-y-6">
       {/* Métricas superiores */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {METRICAS.map(({ label, value, icon: Icon, accent }) => (
+        {METRICAS.map((m) => (
           <div
-            key={label}
+            key={m.label}
             className="rounded-xl border border-telkora-border bg-telkora-card p-5"
           >
             <div className="flex items-center gap-2">
-              <Icon className="size-4 text-telkora-muted" />
-              <p className="text-xs text-telkora-muted">{label}</p>
+              <m.icon className="size-4 text-telkora-muted" />
+              <p className="text-xs text-telkora-muted">{m.label}</p>
             </div>
-            <p className={`mt-2 text-2xl font-bold ${accent ? 'text-telkora-accent' : 'text-telkora-text'}`}>
-              {value}
+            <p className={`mt-2 text-2xl font-bold ${m.accent ? 'text-telkora-accent' : 'text-telkora-text'}`}>
+              {m.value}
             </p>
+            {m.deltaLabel && (
+              <p className={`mt-1 text-xs ${(m.delta ?? 0) > 0 ? 'text-green-500' : (m.delta ?? 0) < 0 ? 'text-telkora-danger' : 'text-telkora-muted'}`}>
+                {(m.delta ?? 0) > 0 ? '↑' : (m.delta ?? 0) < 0 ? '↓' : '→'}{' '}
+                {m.deltaEUR ? formatEUR(Math.abs(m.delta ?? 0)) : Math.abs(m.delta ?? 0)}{' '}
+                <span className="text-telkora-muted">{m.deltaLabel}</span>
+              </p>
+            )}
           </div>
         ))}
       </div>

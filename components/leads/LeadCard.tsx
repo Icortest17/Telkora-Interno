@@ -16,8 +16,10 @@ import { differenceInDays } from 'date-fns'
 interface LeadCardProps {
   lead: Lead
   usuarios?: Usuario[]
+  compact?: boolean
   onUpdateEstado?: (leadId: string, estado: EstadoLead) => void
   onUpdateFollowup?: (leadId: string, fecha: string | null) => void
+  onQuickView?: (lead: Lead) => void
 }
 
 function getDiasEnEtapa(lead: Lead): number {
@@ -26,7 +28,7 @@ function getDiasEnEtapa(lead: Lead): number {
   return Math.max(0, differenceInDays(new Date(), new Date(ref)))
 }
 
-export function LeadCard({ lead, usuarios = [], onUpdateEstado, onUpdateFollowup }: LeadCardProps) {
+export function LeadCard({ lead, usuarios = [], compact, onUpdateEstado, onUpdateFollowup, onQuickView }: LeadCardProps) {
   const router = useRouter()
   const urgente = isFollowupUrgente(lead.proximo_followup)
   const proximo = !urgente && isFollowupProximo(lead.proximo_followup)
@@ -101,6 +103,26 @@ export function LeadCard({ lead, usuarios = [], onUpdateEstado, onUpdateFollowup
     : proximo
     ? 'border-l-2 border-l-yellow-500'
     : ''
+
+  // Compact mode
+  if (compact) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        onClick={() => router.push(`/leads/${lead.id}`)}
+        className={`cursor-pointer rounded border border-telkora-border bg-telkora-card px-3 py-1.5 transition-colors hover:border-telkora-accent/30 hover:bg-telkora-card2 ${borderClass}`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <p className="flex-1 truncate text-xs font-medium text-telkora-text">{lead.empresa}</p>
+          <span className="shrink-0 text-xs font-medium text-telkora-accent">{formatEUR(lead.valor_estimado)}</span>
+          <PriorityScore score={lead.prioridad_score} />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -200,6 +222,18 @@ export function LeadCard({ lead, usuarios = [], onUpdateEstado, onUpdateFollowup
                 </button>
               </div>
             )}
+
+            {/* Vista rápida */}
+            <button
+              className="flex w-full items-center px-3 py-2 text-left text-xs text-telkora-text hover:bg-telkora-card2 border-t border-telkora-border"
+              onClick={(e) => {
+                e.stopPropagation()
+                onQuickView?.(lead)
+                setShowActions(false)
+              }}
+            >
+              Vista rápida ⚡
+            </button>
 
             {/* Ver detalle */}
             <button

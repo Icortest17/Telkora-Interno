@@ -21,6 +21,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { LeadCard } from './LeadCard'
 import { LeadFilters } from './LeadFilters'
+import { LeadQuickView } from './LeadQuickView'
 import { LeadForm } from './LeadForm'
 import { ImportCSV } from './ImportCSV'
 import { LeadListView } from './LeadListView'
@@ -48,14 +49,18 @@ function KanbanColumn({
   estado,
   leads,
   usuarios,
+  compact,
   onUpdateEstado,
   onUpdateFollowup,
+  onQuickView,
 }: {
   estado: EstadoLead
   leads: Lead[]
   usuarios: Usuario[]
+  compact?: boolean
   onUpdateEstado?: (leadId: string, estado: EstadoLead) => void
   onUpdateFollowup?: (leadId: string, fecha: string | null) => void
+  onQuickView?: (lead: Lead) => void
 }) {
   const config = ESTADOS_LEAD[estado]
   const { setNodeRef, isOver } = useDroppable({ id: estado })
@@ -105,8 +110,10 @@ function KanbanColumn({
               key={lead.id}
               lead={lead}
               usuarios={usuarios}
+              compact={compact}
               onUpdateEstado={onUpdateEstado}
               onUpdateFollowup={onUpdateFollowup}
+              onQuickView={onQuickView}
             />
           ))}
         </SortableContext>
@@ -252,6 +259,8 @@ export function LeadKanban({
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [quickViewLead, setQuickViewLead] = useState<Lead | null>(null)
+  const [compact, setCompact] = useState(false)
 
   // Filter state
   const [search, setSearch] = useState('')
@@ -353,6 +362,7 @@ export function LeadKanban({
         onNuevoLead={() => setShowForm(true)}
         onImportar={() => setShowImport(true)}
         vista={vista} onVistaChange={setVista}
+        compact={compact} onCompactChange={setCompact}
       />
 
       {/* Mi Día panel */}
@@ -390,8 +400,10 @@ export function LeadKanban({
                   estado={estado}
                   leads={leadsByEstado[estado]}
                   usuarios={usuarios}
+                  compact={compact}
                   onUpdateEstado={handleCardUpdateEstado}
                   onUpdateFollowup={onUpdateFollowup}
+                  onQuickView={(lead) => setQuickViewLead(lead)}
                 />
               ))}
             </div>
@@ -416,6 +428,14 @@ export function LeadKanban({
         open={showImport}
         onClose={() => setShowImport(false)}
         onSuccess={onRefresh}
+      />
+
+      <LeadQuickView
+        lead={quickViewLead}
+        usuarios={usuarios}
+        onClose={() => setQuickViewLead(null)}
+        onUpdateEstado={handleCardUpdateEstado}
+        onUpdateFollowup={(leadId, fecha) => onUpdateFollowup?.(leadId, fecha)}
       />
     </div>
   )

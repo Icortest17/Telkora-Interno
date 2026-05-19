@@ -15,6 +15,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Telkora | Gestión interna",
   description: "App de gestión interna de Telkora — CRM, Pipeline y Proyectos",
+  manifest: '/manifest.json',
+  themeColor: '#00CC6A',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Telkora',
+  },
 };
 
 export default function RootLayout({

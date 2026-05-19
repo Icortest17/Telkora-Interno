@@ -1,0 +1,13 @@
+{
+  "name": "Telkora Interno",
+  "short_name": "Telkora",
+  "description": "CRM interno de Telkora",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0F",
+  "theme_color": "#00CC6A",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

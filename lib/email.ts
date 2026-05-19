@@ -102,6 +102,81 @@ export async function sendLeadCerradoGanado(
   }
 }
 
+export interface ResumenUsuario {
+  nombre: string
+  leadsUrgentes: number
+  leadsInactivos: number
+  leadsCerradosSemana: number
+  valorPipeline: number
+  metaLeads: number
+  metaValor: number
+  progresoLeads: number  // 0-100
+  progresoValor: number  // 0-100
+}
+
+export async function sendResumenSemanal(
+  to: string,
+  data: ResumenUsuario
+): Promise<void> {
+  const progresoLeadsColor = data.progresoLeads >= 80 ? accent : data.progresoLeads >= 50 ? '#F59E0B' : '#EF4444'
+  const progresoValorColor = data.progresoValor >= 80 ? accent : data.progresoValor >= 50 ? '#F59E0B' : '#EF4444'
+
+  const html = `
+<div style="${base}">
+  <h2 style="color:${accent};margin-top:0;">Resumen semanal</h2>
+  <p>Hola <strong>${data.nombre}</strong>, aqui tienes tu resumen de la semana:</p>
+
+  <table style="width:100%;margin:20px 0;">
+    <tr>
+      <td style="padding:8px;background:#f9fafb;border-radius:8px;text-align:center;width:25%">
+        <p style="margin:0;font-size:24px;font-weight:bold;color:${data.leadsUrgentes > 0 ? '#EF4444' : accent}">${data.leadsUrgentes}</p>
+        <p style="margin:4px 0 0;font-size:11px;color:#666;">Urgentes</p>
+      </td>
+      <td style="width:4%"></td>
+      <td style="padding:8px;background:#f9fafb;border-radius:8px;text-align:center;width:25%">
+        <p style="margin:0;font-size:24px;font-weight:bold;color:#666">${data.leadsInactivos}</p>
+        <p style="margin:4px 0 0;font-size:11px;color:#666;">Sin actividad 7d</p>
+      </td>
+      <td style="width:4%"></td>
+      <td style="padding:8px;background:#f9fafb;border-radius:8px;text-align:center;width:25%">
+        <p style="margin:0;font-size:24px;font-weight:bold;color:${accent}">${data.leadsCerradosSemana}</p>
+        <p style="margin:4px 0 0;font-size:11px;color:#666;">Cerrados esta semana</p>
+      </td>
+      <td style="width:4%"></td>
+      <td style="padding:8px;background:#f9fafb;border-radius:8px;text-align:center;width:25%">
+        <p style="margin:0;font-size:24px;font-weight:bold;color:${accent}">${data.valorPipeline.toLocaleString('es-ES',{style:'currency',currency:'EUR',maximumFractionDigits:0})}</p>
+        <p style="margin:4px 0 0;font-size:11px;color:#666;">Pipeline activo</p>
+      </td>
+    </tr>
+  </table>
+
+  ${data.metaLeads > 0 ? `
+  <p style="font-size:13px;font-weight:bold;margin-bottom:4px;">Progreso de metas del mes</p>
+  <p style="font-size:12px;margin:0 0 4px;">Leads cerrados: ${data.progresoLeads}% de objetivo</p>
+  <div style="background:#eee;border-radius:4px;height:8px;margin-bottom:12px;">
+    <div style="background:${progresoLeadsColor};height:8px;border-radius:4px;width:${Math.min(data.progresoLeads, 100)}%"></div>
+  </div>
+  <p style="font-size:12px;margin:0 0 4px;">Pipeline valor: ${data.progresoValor}% de objetivo</p>
+  <div style="background:#eee;border-radius:4px;height:8px;">
+    <div style="background:${progresoValorColor};height:8px;border-radius:4px;width:${Math.min(data.progresoValor, 100)}%"></div>
+  </div>
+  ` : ''}
+
+  <p style="font-size:13px;color:#666;margin-top:20px;">Que tengas una gran semana.</p>
+</div>`
+
+  try {
+    await getResend().emails.send({
+      from: FROM,
+      to,
+      subject: `[Telkora] Tu resumen semanal — ${new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}`,
+      html,
+    })
+  } catch (err) {
+    console.error('[email] sendResumenSemanal error:', err)
+  }
+}
+
 export async function sendTransaccionVencida(
   to: string,
   nombre: string,
