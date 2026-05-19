@@ -307,6 +307,14 @@ export function LeadKanban({
     return map
   }, [filteredLeads])
 
+  const stats = useMemo(() => {
+    const closedEstados: EstadoLead[] = ['cerrado_ganado', 'cerrado_perdido']
+    const pipeline = filteredLeads
+      .filter((l) => !closedEstados.includes(l.estado))
+      .reduce((s, l) => s + (l.valor_ponderado ?? 0), 0)
+    return { total: filteredLeads.length, pipeline }
+  }, [filteredLeads])
+
   const activeLead = activeId ? leads.find((l) => l.id === activeId) : null
 
   function handleDragStart(event: DragStartEvent) {
@@ -363,6 +371,7 @@ export function LeadKanban({
         onImportar={() => setShowImport(true)}
         vista={vista} onVistaChange={setVista}
         compact={compact} onCompactChange={setCompact}
+        stats={stats}
       />
 
       {/* Mi Día panel */}

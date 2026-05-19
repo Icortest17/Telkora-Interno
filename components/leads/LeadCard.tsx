@@ -268,6 +268,21 @@ export function LeadCard({ lead, usuarios = [], compact, onUpdateEstado, onUpdat
         <p className="mt-1 truncate text-[11px] text-telkora-muted">{lead.pack_interes}</p>
       )}
 
+      {/* Sin actividad badge */}
+      {diasEnEtapa > 7 && (
+        <div className="mt-1.5">
+          {diasEnEtapa > 30 ? (
+            <span className="rounded bg-telkora-danger/10 px-1.5 py-0.5 text-[9px] text-telkora-danger">
+              Sin act. {diasEnEtapa}d
+            </span>
+          ) : (
+            <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] text-amber-400">
+              Sin act. {diasEnEtapa}d
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Footer: valor + prioridad + avatar + días */}
       <div className="mt-2.5 flex items-center justify-between gap-1">
         <span className="text-xs font-medium text-telkora-accent">

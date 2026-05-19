@@ -93,6 +93,7 @@ export interface LeadFiltersProps {
   onVistaChange: (v: 'kanban' | 'lista') => void
   compact?: boolean
   onCompactChange?: (v: boolean) => void
+  stats?: { total: number; pipeline: number }
 }
 
 export function LeadFilters({
@@ -108,6 +109,7 @@ export function LeadFilters({
   onNuevoLead, onImportar,
   vista, onVistaChange,
   compact, onCompactChange,
+  stats,
 }: LeadFiltersProps) {
   const [showMore, setShowMore] = useState(false)
   const [showEstadoDropdown, setShowEstadoDropdown] = useState(false)
@@ -264,8 +266,17 @@ export function LeadFilters({
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Empresa o contacto…"
-            className="h-8 w-48 border-telkora-border bg-telkora-card pl-8 text-xs text-telkora-text placeholder:text-telkora-muted/60 focus-visible:ring-telkora-accent"
+            className="h-8 w-48 border-telkora-border bg-telkora-card pl-8 pr-7 text-xs text-telkora-text placeholder:text-telkora-muted/60 focus-visible:ring-telkora-accent"
           />
+          {search && (
+            <button
+              onClick={() => onSearchChange('')}
+              aria-label="Limpiar búsqueda"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-telkora-muted hover:text-telkora-text"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Toggle vista */}
@@ -417,6 +428,19 @@ export function LeadFilters({
           </Button>
         </div>
       </div>
+
+      {/* Stats line */}
+      {stats && (
+        <div className="flex gap-4 text-xs text-telkora-muted">
+          <span>{stats.total} lead{stats.total !== 1 ? 's' : ''}</span>
+          <span>
+            Pipeline:{' '}
+            <span className="text-telkora-text">
+              {stats.pipeline.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+            </span>
+          </span>
+        </div>
+      )}
 
       {/* Row 2 — advanced filters */}
       {showMore && (
