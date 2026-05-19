@@ -28,5 +28,5 @@ export default async function ClienteDetailPage({ params }: Props) {
     .select('id, nombre, estado, porcentaje_completado, fecha_entrega_estimada')
     .eq('cliente_id', id)
 
-  return <ClienteDetailClient initialCliente={cliente} proyectos={proyectos ?? []} esAdmin={esAdmin} />
+  return <ClienteDetailClient initialCliente={cliente} proyectos={proyectos ?? []} esAdmin={esAdmin} currentUserId={perfil.userId ?? ''} />
 }

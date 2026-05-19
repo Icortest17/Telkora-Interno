@@ -17,8 +17,9 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { useDroppable } from '@dnd-kit/core'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Plus } from 'lucide-react'
+import { Plus, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { ProyectoCard } from './ProyectoCard'
 import { ProyectoForm } from './ProyectoForm'
 import { ESTADOS_PROYECTO, ESTADOS_PROYECTO_ORDER, type EstadoProyecto } from '@/lib/constants'
@@ -94,6 +95,11 @@ export function KanbanProyectos({ proyectos: initialProyectos, clientes, current
   const [activeId, setActiveId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
 
+  // Filter state
+  const [filterSearch, setFilterSearch] = useState('')
+  const [filterPrioridad, setFilterPrioridad] = useState('todos')
+  const [filterCliente, setFilterCliente] = useState('todos')
+
   const clienteMap = useMemo(
     () => new Map(clientes.map((c) => [c.id, c.empresa])),
     [clientes]
@@ -104,12 +110,24 @@ export function KanbanProyectos({ proyectos: initialProyectos, clientes, current
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
+  const proyectosFiltrados = useMemo(() => {
+    return proyectos.filter((p) => {
+      const nombre = p.nombre.toLowerCase()
+      const clienteNombre = (clienteMap.get(p.cliente_id) ?? '').toLowerCase()
+      const search = filterSearch.toLowerCase()
+      if (search && !nombre.includes(search) && !clienteNombre.includes(search)) return false
+      if (filterPrioridad !== 'todos' && p.prioridad !== filterPrioridad) return false
+      if (filterCliente !== 'todos' && p.cliente_id !== filterCliente) return false
+      return true
+    })
+  }, [proyectos, filterSearch, filterPrioridad, filterCliente, clienteMap])
+
   const proyectosByEstado = useMemo(() => {
     const map = {} as Record<EstadoProyecto, Proyecto[]>
     for (const e of ESTADOS_PROYECTO_ORDER) map[e] = []
-    for (const p of proyectos) map[p.estado]?.push(p)
+    for (const p of proyectosFiltrados) map[p.estado]?.push(p)
     return map
-  }, [proyectos])
+  }, [proyectosFiltrados])
 
   const activeProyecto = activeId ? proyectos.find((p) => p.id === activeId) : null
 
@@ -165,21 +183,65 @@ export function KanbanProyectos({ proyectos: initialProyectos, clientes, current
 
   return (
     <div className="flex h-full flex-col gap-4">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-medium text-telkora-muted">
-            {proyectos.length} proyecto{proyectos.length !== 1 ? 's' : ''}
-          </h2>
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-telkora-muted" />
+          <Input
+            value={filterSearch}
+            onChange={(e) => setFilterSearch(e.target.value)}
+            placeholder="Nombre o cliente…"
+            className="h-8 w-48 border-telkora-border bg-telkora-card pl-8 pr-7 text-xs text-telkora-text placeholder:text-telkora-muted/60 focus-visible:ring-telkora-accent"
+          />
+          {filterSearch && (
+            <button
+              onClick={() => setFilterSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-telkora-muted hover:text-telkora-text"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
         </div>
-        <Button
-          size="sm"
-          onClick={() => setShowForm(true)}
-          className="h-8 bg-telkora-accent text-xs font-semibold text-telkora-bg hover:bg-telkora-accent2"
+
+        {/* Prioridad */}
+        <select
+          value={filterPrioridad}
+          onChange={(e) => setFilterPrioridad(e.target.value)}
+          className="h-8 rounded-md border border-telkora-border bg-telkora-card px-2.5 text-xs text-telkora-muted focus:outline-none focus:ring-1 focus:ring-telkora-accent"
         >
-          <Plus className="mr-1.5 size-3.5" />
-          Nuevo proyecto
-        </Button>
+          <option value="todos">Todas las prioridades</option>
+          <option value="alta">Alta</option>
+          <option value="media">Media</option>
+          <option value="baja">Baja</option>
+        </select>
+
+        {/* Cliente */}
+        <select
+          value={filterCliente}
+          onChange={(e) => setFilterCliente(e.target.value)}
+          className="h-8 rounded-md border border-telkora-border bg-telkora-card px-2.5 text-xs text-telkora-muted focus:outline-none focus:ring-1 focus:ring-telkora-accent"
+        >
+          <option value="todos">Todos los clientes</option>
+          {clientes.map((c) => (
+            <option key={c.id} value={c.id}>{c.empresa}</option>
+          ))}
+        </select>
+
+        <span className="text-xs text-telkora-muted">
+          {proyectosFiltrados.length} proyecto{proyectosFiltrados.length !== 1 ? 's' : ''}
+        </span>
+
+        <div className="ml-auto">
+          <Button
+            size="sm"
+            onClick={() => setShowForm(true)}
+            className="h-8 bg-telkora-accent text-xs font-semibold text-telkora-bg hover:bg-telkora-accent2"
+          >
+            <Plus className="mr-1.5 size-3.5" />
+            Nuevo proyecto
+          </Button>
+        </div>
       </div>
 
       {/* Board */}

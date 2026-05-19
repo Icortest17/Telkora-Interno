@@ -4,10 +4,10 @@ import { getPerfil, getUsuarios } from '@/lib/profile'
 import Link from 'next/link'
 import { formatEUR, formatDate, isFollowupUrgente } from '@/lib/utils'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { AlertTriangle, TrendingUp, Users, BarChart2, FolderKanban, Target, Kanban } from 'lucide-react'
+import { AlertTriangle, TrendingUp, Users, BarChart2, FolderKanban, Target, Kanban, CalendarClock, Banknote } from 'lucide-react'
 import type { Lead, EstadoLead } from '@/types'
 import { ESTADOS_LEAD, ESTADOS_PIPELINE } from '@/lib/constants'
-import { differenceInDays } from 'date-fns'
+import { differenceInDays, addDays, formatISO } from 'date-fns'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -21,18 +21,40 @@ export default async function DashboardPage() {
   let proyQuery = supabase.from('proyectos').select('id, estado').not('estado', 'in', '("entregado","cancelado","pausado")')
   if (esSocio) proyQuery = proyQuery.eq('owner_id', userId) as typeof proyQuery
 
-  const [leadsRes, clientesRes, proyectosRes] = await Promise.all([
+  const today = formatISO(new Date(), { representation: 'date' })
+  const todayPlus7 = formatISO(addDays(new Date(), 7), { representation: 'date' })
+
+  let entregasQuery = supabase
+    .from('proyectos')
+    .select('id')
+    .gte('fecha_entrega_estimada', today)
+    .lte('fecha_entrega_estimada', todayPlus7)
+    .not('estado', 'in', '("entregado","cancelado")')
+  if (esSocio) entregasQuery = entregasQuery.eq('owner_id', userId) as typeof entregasQuery
+
+  let pendienteCobrarQuery = supabase
+    .from('transacciones')
+    .select('importe')
+    .in('estado', ['pendiente', 'enviada'])
+    .eq('tipo', 'ingreso')
+  if (esSocio) pendienteCobrarQuery = pendienteCobrarQuery.eq('owner_id', userId) as typeof pendienteCobrarQuery
+
+  const [leadsRes, clientesRes, proyectosRes, entregasRes, pendienteCobrarRes] = await Promise.all([
     leadsQuery,
     // MRR solo visible para admin
     esSocio
       ? Promise.resolve({ data: [] })
       : supabase.from('clientes').select('mrr, estado').eq('estado', 'activo'),
     proyQuery,
+    entregasQuery,
+    pendienteCobrarQuery,
   ])
 
   const leads: Lead[] = leadsRes.data ?? []
   const clientes = clientesRes.data ?? []
   const proyectosActivos = proyectosRes.data?.length ?? 0
+  const entregasProximas7d = entregasRes.data?.length ?? 0
+  const pendienteCobrar = (pendienteCobrarRes.data ?? []).reduce((s, t) => s + t.importe, 0)
 
   // Métricas
   const leadsActivos = leads.filter(
@@ -211,6 +233,40 @@ export default async function DashboardPage() {
             )}
           </div>
         ))}
+      </div>
+
+      {/* Sección Rol técnico */}
+      <div>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-telkora-muted">Rol técnico</p>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <div className="rounded-xl border border-telkora-border bg-telkora-card p-5">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="size-4 text-telkora-muted" />
+              <p className="text-xs text-telkora-muted">Entregas próximas 7d</p>
+            </div>
+            <p className={`mt-2 text-2xl font-bold ${entregasProximas7d > 0 ? 'text-telkora-danger' : 'text-green-500'}`}>
+              {entregasProximas7d}
+            </p>
+          </div>
+          <div className="rounded-xl border border-telkora-border bg-telkora-card p-5">
+            <div className="flex items-center gap-2">
+              <Banknote className="size-4 text-telkora-muted" />
+              <p className="text-xs text-telkora-muted">Pendiente de cobrar</p>
+            </div>
+            <p className="mt-2 text-2xl font-bold text-telkora-text">
+              {formatEUR(pendienteCobrar)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-telkora-border bg-telkora-card p-5">
+            <div className="flex items-center gap-2">
+              <FolderKanban className="size-4 text-telkora-muted" />
+              <p className="text-xs text-telkora-muted">Proyectos activos</p>
+            </div>
+            <p className="mt-2 text-2xl font-bold text-telkora-text">
+              {proyectosActivos}
+            </p>
+          </div>
+        </div>
       </div>
 
       {leads.length === 0 ? (

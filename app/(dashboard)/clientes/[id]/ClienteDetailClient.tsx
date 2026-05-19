@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { ArrowLeft, ExternalLink, Trash2 } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Trash2, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,6 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { formatEUR, mesesComoCliente, formatDate } from '@/lib/utils'
+import { TIPOS_PROYECTO } from '@/lib/constants'
 import type { Cliente, Proyecto } from '@/types'
 
 const TIER_CONFIG = {
@@ -25,13 +26,53 @@ interface Props {
   initialCliente: Cliente
   proyectos: Partial<Proyecto>[]
   esAdmin: boolean
+  currentUserId: string
 }
 
-export function ClienteDetailClient({ initialCliente, proyectos, esAdmin }: Props) {
+export function ClienteDetailClient({ initialCliente, proyectos, esAdmin, currentUserId }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [cliente, setCliente] = useState<Cliente>(initialCliente)
   const [isDeleting, setIsDeleting] = useState(false)
+
+  // Nuevo proyecto modal
+  const [showNuevoProyecto, setShowNuevoProyecto] = useState(false)
+  const [npNombre, setNpNombre] = useState('')
+  const [npTipo, setNpTipo] = useState(TIPOS_PROYECTO[0])
+  const [npFecha, setNpFecha] = useState('')
+  const [npPresupuesto, setNpPresupuesto] = useState('')
+  const [npPrioridad, setNpPrioridad] = useState<'alta' | 'media' | 'baja'>('media')
+  const [isCreandoProyecto, setIsCreandoProyecto] = useState(false)
+
+  async function handleCrearProyecto(e: React.FormEvent) {
+    e.preventDefault()
+    if (!npNombre.trim()) return
+    setIsCreandoProyecto(true)
+    try {
+      const { data: nuevo, error } = await supabase
+        .from('proyectos')
+        .insert({
+          nombre: npNombre.trim(),
+          cliente_id: cliente.id,
+          tipo_proyecto: npTipo,
+          fecha_entrega_estimada: npFecha || null,
+          presupuesto: Number(npPresupuesto) || null,
+          prioridad: npPrioridad,
+          estado: 'briefing',
+          owner_id: currentUserId,
+          porcentaje_completado: 0,
+          facturado: 0,
+        })
+        .select()
+        .single()
+      if (error) throw error
+      toast.success('Proyecto creado')
+      router.push(`/proyectos/${nuevo.id}`)
+    } catch {
+      toast.error('Error creando proyecto')
+      setIsCreandoProyecto(false)
+    }
+  }
 
   const updateField = useCallback(
     async (field: keyof Cliente, value: unknown) => {
@@ -103,6 +144,15 @@ export function ClienteDetailClient({ initialCliente, proyectos, esAdmin }: Prop
             Ver lead de origen
           </Button>
         )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowNuevoProyecto(true)}
+          className="h-8 border-telkora-border text-xs text-telkora-muted hover:bg-telkora-card2"
+        >
+          <Plus className="mr-1.5 size-3" />
+          Nuevo proyecto
+        </Button>
         {esAdmin && (
           <Button
             variant="ghost"
@@ -116,6 +166,105 @@ export function ClienteDetailClient({ initialCliente, proyectos, esAdmin }: Prop
           </Button>
         )}
       </div>
+
+      {/* Modal: Nuevo proyecto */}
+      {showNuevoProyecto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md rounded-xl border border-telkora-border bg-telkora-card p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-telkora-text">Nuevo proyecto</h2>
+              <button
+                onClick={() => setShowNuevoProyecto(false)}
+                className="text-telkora-muted hover:text-telkora-text"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+            <form onSubmit={handleCrearProyecto} className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] text-telkora-muted">Nombre *</Label>
+                <Input
+                  required
+                  value={npNombre}
+                  onChange={(e) => setNpNombre(e.target.value)}
+                  placeholder="Nombre del proyecto"
+                  className="h-8 border-telkora-border bg-telkora-card2 text-xs text-telkora-text"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-telkora-muted">Tipo de proyecto</Label>
+                <Select value={npTipo} onValueChange={(v) => setNpTipo(v ?? npTipo)}>
+                  <SelectTrigger className="h-8 border-telkora-border bg-telkora-card2 text-xs text-telkora-text">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-telkora-border bg-telkora-card">
+                    {TIPOS_PROYECTO.map((t) => (
+                      <SelectItem key={t} value={t} className="text-xs text-telkora-text">{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-telkora-muted">Entrega estimada</Label>
+                  <Input
+                    type="date"
+                    value={npFecha}
+                    onChange={(e) => setNpFecha(e.target.value)}
+                    className="h-8 border-telkora-border bg-telkora-card2 text-xs text-telkora-text"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-telkora-muted">Presupuesto (€)</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={npPresupuesto}
+                    onChange={(e) => setNpPresupuesto(e.target.value)}
+                    placeholder="0"
+                    className="h-8 border-telkora-border bg-telkora-card2 text-xs text-telkora-text"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-telkora-muted">Prioridad</Label>
+                <Select
+                  value={npPrioridad}
+                  onValueChange={(v) => setNpPrioridad((v ?? 'media') as 'alta' | 'media' | 'baja')}
+                >
+                  <SelectTrigger className="h-8 border-telkora-border bg-telkora-card2 text-xs text-telkora-text">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="border-telkora-border bg-telkora-card">
+                    <SelectItem value="alta" className="text-xs text-telkora-text">Alta</SelectItem>
+                    <SelectItem value="media" className="text-xs text-telkora-text">Media</SelectItem>
+                    <SelectItem value="baja" className="text-xs text-telkora-text">Baja</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowNuevoProyecto(false)}
+                  className="h-8 border-telkora-border text-xs text-telkora-muted hover:bg-telkora-card2"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isCreandoProyecto}
+                  className="h-8 bg-telkora-accent text-xs font-semibold text-telkora-bg hover:bg-telkora-accent2"
+                >
+                  {isCreandoProyecto ? 'Creando…' : 'Crear'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Métricas */}

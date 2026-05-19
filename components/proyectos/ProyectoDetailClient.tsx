@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -48,7 +48,7 @@ interface Props {
   usuarios: Usuario[]
 }
 
-export function ProyectoDetailClient({ proyecto: initialProyecto, cliente, transacciones, esAdmin, usuarios }: Props) {
+export function ProyectoDetailClient({ proyecto: initialProyecto, cliente, transacciones: initialTransacciones, esAdmin, usuarios }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -61,9 +61,92 @@ export function ProyectoDetailClient({ proyecto: initialProyecto, cliente, trans
   const [porcentaje, setPorcentaje] = useState(String(initialProyecto.porcentaje_completado))
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [savedState, setSavedState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const [transacciones, setTransacciones] = useState<Transaccion[]>(initialTransacciones)
+
+  // Registrar cobro inline form
+  const [showCobro, setShowCobro] = useState(false)
+  const [cobroConcepto, setCobroConcepto] = useState(`Cobro - ${initialProyecto.nombre}`)
+  const [cobroImporte, setCobroImporte] = useState(String(initialProyecto.presupuesto ?? ''))
+  const [cobroEstado, setCobroEstado] = useState<'pendiente' | 'enviada' | 'cobrada'>('pendiente')
+  const [cobroFecha, setCobroFecha] = useState('')
+  const [isSavingCobro, setIsSavingCobro] = useState(false)
+
+  async function handleRegistrarCobro(e: React.FormEvent) {
+    e.preventDefault()
+    setIsSavingCobro(true)
+    try {
+      const { data: nueva, error } = await supabase
+        .from('transacciones')
+        .insert({
+          concepto: cobroConcepto.trim() || `Cobro - ${proyecto.nombre}`,
+          importe: Number(cobroImporte) || 0,
+          tipo: 'ingreso',
+          estado: cobroEstado,
+          fecha_cobro: cobroFecha || null,
+          proyecto_id: proyecto.id,
+          cliente_id: proyecto.cliente_id,
+          owner_id: proyecto.owner_id,
+          es_recurrente: false,
+        })
+        .select()
+        .single()
+      if (error) throw error
+      setTransacciones((prev) => [nueva as Transaccion, ...prev])
+      toast.success('Cobro registrado')
+      setShowCobro(false)
+      setCobroConcepto(`Cobro - ${proyecto.nombre}`)
+      setCobroImporte(String(proyecto.presupuesto ?? ''))
+      setCobroEstado('pendiente')
+      setCobroFecha('')
+    } catch {
+      toast.error('Error registrando cobro')
+    } finally {
+      setIsSavingCobro(false)
+    }
+  }
 
   const estadoConfig = ESTADOS_PROYECTO[proyecto.estado]
   const prioridadColor = PRIORIDAD_COLOR[proyecto.prioridad]
+
+  // Debounced auto-save for nombre, descripcion, porcentaje_completado
+  useEffect(() => {
+    clearTimeout(debounceRef.current)
+    const porcentajeNum = Math.min(100, Math.max(0, Number(porcentaje) || 0))
+    const hasChange =
+      nombre !== proyecto.nombre ||
+      descripcion !== (proyecto.descripcion ?? '') ||
+      porcentajeNum !== proyecto.porcentaje_completado
+    if (!hasChange) return
+    setSavedState('saving')
+    debounceRef.current = setTimeout(async () => {
+      const { error } = await supabase
+        .from('proyectos')
+        .update({
+          nombre: nombre.trim() || proyecto.nombre,
+          descripcion: descripcion || null,
+          porcentaje_completado: porcentajeNum,
+        })
+        .eq('id', proyecto.id)
+      if (!error) {
+        setProyecto((prev) => ({
+          ...prev,
+          nombre: nombre.trim() || prev.nombre,
+          descripcion: descripcion || null,
+          porcentaje_completado: porcentajeNum,
+        }))
+        setSavedState('saved')
+        clearTimeout(savedTimerRef.current)
+        savedTimerRef.current = setTimeout(() => setSavedState('idle'), 2000)
+      } else {
+        setSavedState('idle')
+      }
+    }, 1000)
+    return () => clearTimeout(debounceRef.current)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nombre, descripcion, porcentaje])
 
   async function handleDeleteProyecto() {
     if (!window.confirm('¿Eliminar este proyecto? Esta acción no se puede deshacer.')) return
@@ -303,7 +386,19 @@ export function ProyectoDetailClient({ proyecto: initialProyecto, cliente, trans
             </div>
           </section>
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-3">
+            {savedState === 'saving' && (
+              <span className="flex items-center gap-1.5 text-xs text-telkora-muted">
+                <span className="inline-block size-3 animate-spin rounded-full border-2 border-telkora-muted border-t-transparent" />
+                Guardando…
+              </span>
+            )}
+            {savedState === 'saved' && (
+              <span className="flex items-center gap-1.5 text-xs text-green-500">
+                <span className="inline-block size-2 rounded-full bg-green-500" />
+                Guardado
+              </span>
+            )}
             <Button
               onClick={handleGuardar}
               disabled={isSaving}
@@ -412,9 +507,84 @@ export function ProyectoDetailClient({ proyecto: initialProyecto, cliente, trans
 
           {/* Transacciones vinculadas */}
           <section className="rounded-xl border border-telkora-border bg-telkora-card p-5">
-            <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-telkora-muted">
-              Transacciones vinculadas
-            </h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-telkora-muted">
+                Transacciones vinculadas
+              </h2>
+              <button
+                onClick={() => setShowCobro((v) => !v)}
+                className="flex items-center gap-1 rounded-md border border-telkora-border bg-telkora-card2 px-2.5 py-1 text-[11px] text-telkora-muted hover:border-telkora-accent hover:text-telkora-accent"
+              >
+                + Registrar cobro
+              </button>
+            </div>
+
+            {showCobro && (
+              <form onSubmit={handleRegistrarCobro} className="mb-4 space-y-2 rounded-lg border border-telkora-accent/30 bg-telkora-card2 p-3">
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-telkora-muted">Concepto</Label>
+                  <Input
+                    value={cobroConcepto}
+                    onChange={(e) => setCobroConcepto(e.target.value)}
+                    className="h-7 border-telkora-border bg-telkora-card text-xs text-telkora-text"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-telkora-muted">Importe (€)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={cobroImporte}
+                      onChange={(e) => setCobroImporte(e.target.value)}
+                      className="h-7 border-telkora-border bg-telkora-card text-xs text-telkora-text"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-telkora-muted">Estado</Label>
+                    <Select
+                      value={cobroEstado}
+                      onValueChange={(v) => setCobroEstado((v ?? 'pendiente') as 'pendiente' | 'enviada' | 'cobrada')}
+                    >
+                      <SelectTrigger className="h-7 border-telkora-border bg-telkora-card text-xs text-telkora-text">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="border-telkora-border bg-telkora-card">
+                        <SelectItem value="pendiente" className="text-xs text-telkora-text">Pendiente</SelectItem>
+                        <SelectItem value="enviada" className="text-xs text-telkora-text">Enviada</SelectItem>
+                        <SelectItem value="cobrada" className="text-xs text-telkora-text">Cobrada</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-telkora-muted">Fecha cobro (opcional)</Label>
+                  <Input
+                    type="date"
+                    value={cobroFecha}
+                    onChange={(e) => setCobroFecha(e.target.value)}
+                    className="h-7 border-telkora-border bg-telkora-card text-xs text-telkora-text"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowCobro(false)}
+                    className="rounded px-2.5 py-1 text-[11px] text-telkora-muted hover:text-telkora-text"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingCobro}
+                    className="rounded bg-telkora-accent px-3 py-1 text-[11px] font-semibold text-telkora-bg hover:bg-telkora-accent2 disabled:opacity-60"
+                  >
+                    {isSavingCobro ? 'Guardando…' : 'Guardar'}
+                  </button>
+                </div>
+              </form>
+            )}
+
             {transacciones.length === 0 ? (
               <p className="py-4 text-center text-xs text-telkora-muted">
                 Sin transacciones vinculadas
