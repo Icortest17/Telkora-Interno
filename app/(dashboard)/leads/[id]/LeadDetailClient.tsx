@@ -255,7 +255,7 @@ export function LeadDetailClient({ initialLead, initialActividades, currentUserI
             {isConvirtiendo ? 'Convirtiendo…' : 'Convertir a cliente'}
           </Button>
         )}
-        {esAdmin && (
+        {(esAdmin || lead.owner_id === currentUserId) && (
           <Button
             variant="ghost"
             size="sm"
